@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>문제풀이 | problemsets.xlsx</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+  <style>
+    :root {
+      --bg: #0b0f14;
+      --card: #121821;
+      --muted: #9bb3c9;
+      --text: #e6edf3;
+      --accent: #4aa3ff;
+      --good: #2bd97c;
+      --bad: #ff6b6b;
+      --border: #223044;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, Helvetica, Arial;
+      background: linear-gradient(180deg, #0b0f14 0%, #0e1520 100%);
+      color: var(--text);
+    }
+    header { position: sticky; top: 0; z-index: 50; backdrop-filter: blur(8px);
+      background: rgba(11,15,20,0.75); border-bottom: 1px solid var(--border); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 16px; }
+    h1 { font-size: 20px; margin: 0; letter-spacing: .3px; }
+    #controls { display: grid; grid-template-columns: repeat(12, 1fr); gap: 12px; align-items: center; margin-top: 12px; }
+    #search { grid-column: span 6; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0f1622; color: var(--text); }
+    .btn { padding: 10px 12px; border: 1px solid var(--border); background: #101826; color: var(--text); border-radius: 10px; cursor: pointer; transition: .15s; }
+    .btn:hover { transform: translateY(-1px); border-color: #33507a; }
+    .btn.primary { background: linear-gradient(180deg, #1a66ff, #0e55dd); border-color: transparent; }
+    .btn.ghost { background: transparent; }
+    label.inline { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+    select, input[type="number"] { padding: 8px 10px; border-radius: 8px; border: 1px solid var(--border); background: #121b29; color: var(--text); }
+    #status { color: var(--muted); font-size: 14px; grid-column: span 12; }
+
+    main.wrap { padding-top: 8px; }
+    #quiz { display: grid; grid-template-columns: 1fr; gap: 12px; margin: 16px 0 48px; }
+    .card { border: 1px solid var(--border); background: var(--card); border-radius: 16px; padding: 14px; }
+    .row { display: grid; grid-template-columns: 56px 1fr; gap: 12px; align-items: start; }
+    .idx { width: 56px; height: 40px; display: grid; place-items: center; font-weight: 700; color: var(--muted); }
+    .q { white-space: pre-wrap; line-height: 1.45; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+    .ans-input { flex: 1 1 240px; padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0f1622; color: var(--text); }
+    .small { font-size: 12px; color: var(--muted); }
+    .feedback { margin-top: 8px; font-weight: 600; }
+    .feedback.good { color: var(--good); }
+    .feedback.bad { color: var(--bad); }
+    .answer { margin-top: 10px; padding: 8px 10px; border-radius: 10px; background: #0e1520; border: 1px dashed #2a3a55; }
+    .tags { display: flex; gap: 8px; align-items: center; color: var(--muted); font-size: 12px; }
+    .chip { border: 1px solid var(--border); padding: 2px 8px; border-radius: 999px; }
+
+    .card.correct { outline: 1px solid rgba(43,217,124,.4); }
+    .card.wrong { outline: 1px solid rgba(255,107,107,.4); }
+
+    footer { color: var(--muted); border-top: 1px solid var(--border); padding: 16px 0 40px; }
+
+    @media (max-width: 840px) {
+      #controls { grid-template-columns: repeat(6, 1fr); }
+      #search { grid-column: span 6; }
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>문제풀이 (<code>problemsets.xlsx</code>)</h1>
+      <div id="controls" aria-label="컨트롤">
+        <input id="search" type="search" placeholder="검색 (문제/정답)" />
+        <label class="inline"><input type="checkbox" id="shuffle"> 무작위</label>
+        <label class="inline">표시 개수
+          <select id="limit">
+            <option value="0">전체</option>
+            <option>10</option>
+            <option>20</option>
+            <option>50</option>
+            <option>100</option>
+          </select>
+        </label>
+        <label class="inline"><input type="checkbox" id="strict"> 엄격 채점(완전일치)</label>
+        <label class="inline"><input type="checkbox" id="wrongOnly"> 오답만 보기</label>
+        <button class="btn primary" id="reload">엑셀 불러오기</button>
+        <button class="btn" id="toggleAll">전체 정답 보기</button>
+        <button class="btn ghost" id="resetAll">초기화</button>
+        <div id="status" class="small">시트1의 A열=문제, B열=정답. 헤더는 있어도 되고 없어도 됩니다. 정답에 <code>|</code>로 동의어를 구분할 수 있어요.</div>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section id="quiz" aria-live="polite"></section>
+    <footer>
+      <div class="wrap">
+        <div>같은 레포에 <strong>problemsets.xlsx</strong> 파일을 두면 자동으로 불러옵니다. (첫 번째 시트를 사용)</div>
+      </div>
+    </footer>
+  </main>
+
+  <!-- SheetJS (xlsx) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script>
+    const EXCEL_PATH = 'problemsets.xlsx'; // 같은 레포 루트에 둔 파일명
+
+    const els = {
+      quiz: document.getElementById('quiz'),
+      search: document.getElementById('search'),
+      shuffle: document.getElementById('shuffle'),
+      limit: document.getElementById('limit'),
+      strict: document.getElementById('strict'),
+      wrongOnly: document.getElementById('wrongOnly'),
+      reload: document.getElementById('reload'),
+      toggleAll: document.getElementById('toggleAll'),
+      resetAll: document.getElementById('resetAll'),
+      status: document.getElementById('status'),
+    };
+
+    const state = {
+      all: [],        // {q, a, alts}
+      view: [],       // 렌더 중인 집합
+      showAnswers: false,
+    };
+
+    // 유틸: 정규화
+    const normalize = (s) => String(s ?? '')
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, ' ');
+
+    // 채점: 완전일치, 또는 느슨한 모드(포함/공백무시)
+    function isCorrect(user, answerList, strict) {
+      const u = normalize(user);
+      if (!u) return false;
+      if (strict) {
+        return answerList.some(ans => normalize(ans) === u);
+      }
+      // 느슨: 부분일치 허용 (정답 토큰 중 하나가 포함)
+      return answerList.some(ans => u.includes(normalize(ans)) || normalize(ans).includes(u));
+    }
+
+    // 엑셀 로드
+    async function loadExcel() {
+      els.status.textContent = '엑셀 불러오는 중...';
+      try {
+        const res = await fetch(EXCEL_PATH, { cache: 'no-store' });
+        if (!res.ok) throw new Error('파일을 불러올 수 없습니다: ' + res.status);
+        const buf = await res.arrayBuffer();
+        const wb = XLSX.read(buf);
+        const ws = wb.Sheets[wb.SheetNames[0]]; // 첫 시트 사용
+        let rows = XLSX.utils.sheet_to_json(ws, { header: 1, blankrows: false });
+
+        // 헤더 감지: 첫 행에 '문제' 또는 '정답' 포함 시 헤더 제거
+        if (rows.length && rows[0]) {
+          const first = rows[0].map(v => String(v ?? '').trim());
+          const looksHeader = first.some(v => /^(문제|문항|question)$/i.test(v)) || first.some(v => /^(정답|답|answer)$/i.test(v));
+          if (looksHeader) rows = rows.slice(1);
+        }
+
+        const items = rows
+          .map(r => ({ q: r[0], a: r[1] }))
+          .filter(x => String(x.q ?? '').trim() && String(x.a ?? '').trim())
+          .map(x => ({
+            q: String(x.q).trim(),
+            a: String(x.a).trim(),
+            alts: String(x.a).split('|').map(s => s.trim()).filter(Boolean),
+          }));
+
+        state.all = items;
+        applyView();
+        els.status.textContent = `불러오기 완료: 총 ${items.length}문항`;
+      } catch (err) {
+        console.error(err);
+        els.status.textContent = '불러오기 실패: ' + err.message;
+      }
+    }
+
+    function shuffleArray(arr) {
+      const a = arr.slice();
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    }
+
+    function applyView() {
+      let list = state.all.slice();
+      const term = els.search.value.trim().toLowerCase();
+      if (term) {
+        list = list.filter(x => x.q.toLowerCase().includes(term) || x.a.toLowerCase().includes(term));
+      }
+      if (els.shuffle.checked) list = shuffleArray(list);
+
+      const lim = parseInt(els.limit.value, 10) || 0;
+      if (lim > 0) list = list.slice(0, lim);
+
+      // 오답만 보기: 렌더 후에 반영되도록 카드 상태 체크 필요 → 렌더 후 토글 처리
+      state.view = list;
+      render();
+      if (els.wrongOnly.checked) filterWrongOnly();
+    }
+
+    function render() {
+      const frag = document.createDocumentFragment();
+      els.quiz.innerHTML = '';
+
+      state.view.forEach((item, idx) => {
+        const card = document.createElement('article');
+        card.className = 'card';
+        card.dataset.index = idx;
+
+        const row = document.createElement('div');
+        row.className = 'row';
+
+        const idxEl = document.createElement('div');
+        idxEl.className = 'idx';
+        idxEl.textContent = String(idx + 1).padStart(2, '0');
+
+        const content = document.createElement('div');
+        const q = document.createElement('div');
+        q.className = 'q';
+        q.textContent = item.q;
+
+        const actions = document.createElement('div');
+        actions.className = 'actions';
+
+        const input = document.createElement('input');
+        input.className = 'ans-input';
+        input.placeholder = '정답 입력 후 Enter 또는 채점';
+        input.autocomplete = 'off';
+
+        const checkBtn = document.createElement('button');
+        checkBtn.className = 'btn';
+        checkBtn.textContent = '채점';
+
+        const revealBtn = document.createElement('button');
+        revealBtn.className = 'btn ghost';
+        revealBtn.textContent = '정답 보기';
+
+        const tags = document.createElement('div');
+        tags.className = 'tags small';
+        tags.innerHTML = `<span class="chip">Enter=채점</span><span class="chip">Ctrl+Enter=정답</span>`;
+
+        const feedback = document.createElement('div');
+        feedback.className = 'feedback';
+
+        const ans = document.createElement('div');
+        ans.className = 'answer';
+        ans.hidden = !state.showAnswers;
+        ans.innerHTML = `<span class="small">정답</span><div><strong>${item.a}</strong></div>`;
+
+        actions.append(input, checkBtn, revealBtn);
+        content.append(q, actions, tags, feedback, ans);
+        row.append(idxEl, content);
+        card.append(row);
+        frag.append(card);
+
+        function grade() {
+          const ok = isCorrect(input.value, item.alts.length ? item.alts : [item.a], els.strict.checked);
+          card.classList.remove('correct', 'wrong');
+          if (ok) {
+            card.classList.add('correct');
+            feedback.textContent = '정답!';
+            feedback.className = 'feedback good';
+          } else {
+            card.classList.add('wrong');
+            feedback.textContent = '오답';
+            feedback.className = 'feedback bad';
+          }
+        }
+
+        input.addEventListener('keydown', (e) => {
+          if (e.key === 'Enter' && !e.ctrlKey) {
+            grade();
+          } else if (e.key === 'Enter' && e.ctrlKey) {
+            ans.hidden = !ans.hidden;
+          }
+        });
+        checkBtn.addEventListener('click', grade);
+        revealBtn.addEventListener('click', () => ans.hidden = !ans.hidden);
+      });
+
+      els.quiz.append(frag);
+      updateStatusCount();
+    }
+
+    function updateStatusCount() {
+      const total = state.view.length;
+      const correct = els.quiz.querySelectorAll('.card.correct').length;
+      const wrong = els.quiz.querySelectorAll('.card.wrong').length;
+      const showing = [...els.quiz.children].filter(n => n.style.display !== 'none').length;
+      els.status.textContent = `표시 ${showing}/${total} | 정답 ${correct} · 오답 ${wrong}`;
+    }
+
+    function toggleAllAnswers() {
+      state.showAnswers = !state.showAnswers;
+      els.toggleAll.textContent = state.showAnswers ? '전체 정답 숨기기' : '전체 정답 보기';
+      els.quiz.querySelectorAll('.answer').forEach(el => el.hidden = !state.showAnswers);
+    }
+
+    function filterWrongOnly() {
+      const onlyWrong = els.wrongOnly.checked;
+      const cards = els.quiz.querySelectorAll('.card');
+      cards.forEach(c => {
+        const isWrong = c.classList.contains('wrong');
+        const isCorrect = c.classList.contains('correct');
+        c.style.display = onlyWrong ? (isWrong ? '' : 'none') : '';
+      });
+      updateStatusCount();
+    }
+
+    // 이벤트 바인딩
+    els.search.addEventListener('input', applyView);
+    els.shuffle.addEventListener('change', applyView);
+    els.limit.addEventListener('change', applyView);
+    els.strict.addEventListener('change', () => {/* 채점 모드 변경만 */});
+    els.wrongOnly.addEventListener('change', filterWrongOnly);
+    els.reload.addEventListener('click', loadExcel);
+    els.toggleAll.addEventListener('click', toggleAllAnswers);
+    els.resetAll.addEventListener('click', () => { els.search.value = ''; els.shuffle.checked = false; els.limit.value = '0'; els.strict.checked = false; els.wrongOnly.checked = false; state.showAnswers = false; applyView(); toggleAllAnswers(); toggleAllAnswers(); });
+
+    // 초기 로드
+    window.addEventListener('DOMContentLoaded', () => {
+      loadExcel();
+    });
+  </script>
+</body>
+</html>
