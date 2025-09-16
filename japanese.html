@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>일본어 퀴즈 - 정답 보기</title>
+  <!-- SheetJS for optional XLSX loading -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root {
+      --bg:#0b1020; --card:#121934; --text:#e8ecff; --muted:#9aa3c7; --acc:#6ea8fe; --ok:#3ddc97;
+    }
+    * { box-sizing:border-box }
+    body { margin:0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, Apple SD Gothic Neo, sans-serif; background: radial-gradient(1200px 800px at 70% -20%, #1a2550 0%, #0b1020 60%); color:var(--text); min-height:100vh; display:flex; align-items:center; justify-content:center; padding:24px }
+    .wrap { width:min(760px, 100%); }
+    .topbar { display:flex; gap:12px; align-items:center; justify-content:space-between; margin-bottom:18px }
+    .title { font-weight:800; letter-spacing:.2px; font-size:22px }
+    .controls { display:flex; gap:8px; flex-wrap:wrap }
+    input[type="file"] { display:none }
+    .btn { background:#223063; color:var(--text); border:1px solid #33417a; border-radius:12px; padding:10px 14px; cursor:pointer; font-weight:600; transition:transform .06s ease, background .2s }
+    .btn:hover{ background:#2a3b78 }
+    .btn:active{ transform:translateY(1px) }
+    .btn.secondary{ background:#1a244d }
+    .btn.ok{ background:#18443a; border-color:#295e52 }
+    .btn.warn{ background:#4a2036; border-color:#6c314d }
+    .card { background:linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,.02)); border:1px solid #2b3669; border-radius:18px; padding:24px; box-shadow: 0 10px 30px rgba(0,0,0,.35) }
+    .jpn { font-size:40px; font-weight:800; text-align:center; letter-spacing:.5px; margin:4px 0 16px }
+    .hint { text-align:center; color:var(--muted); margin-top:-6px; font-size:13px }
+    .answer { display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:18px }
+    .pill { background:#0e1533; border:1px dashed #32407a; color:#cfd6ff; padding:14px; border-radius:14px; text-align:center; font-size:18px; font-weight:700; min-height:52px; display:flex; align-items:center; justify-content:center }
+    .pill.hidden { filter: blur(9px); opacity:.75 }
+    .nav { display:flex; justify-content:space-between; gap:8px; margin-top:20px }
+    .idx { color:var(--muted); font-size:13px; text-align:center; margin-top:10px }
+    .small { font-size:12px; color:var(--muted) }
+    .footer { margin-top:18px; text-align:center; color:var(--muted); font-size:12px }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="topbar">
+      <div class="title">일본어 퀴즈 · 정답 버튼으로 뜻/발음 보기</div>
+      <div class="controls">
+        <label class="btn secondary" for="xlsxInput">엑셀 불러오기</label>
+        <input id="xlsxInput" type="file" accept=".xlsx,.xls" />
+        <button id="shuffleBtn" class="btn">셔플</button>
+        <button id="resetBtn" class="btn secondary">처음으로</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="jpn" id="jpn">—</div>
+      <div class="hint">일본어를 보고 의미와 발음을 맞혀봐!</div>
+
+      <div class="answer">
+        <div class="pill hidden" id="mean">뜻</div>
+        <div class="pill hidden" id="pron">발음</div>
+      </div>
+
+      <div class="nav">
+        <div style="display:flex; gap:8px">
+          <button id="prevBtn" class="btn secondary">이전</button>
+          <button id="nextBtn" class="btn secondary">다음</button>
+        </div>
+        <div style="display:flex; gap:8px">
+          <button id="revealBtn" class="btn ok">정답</button>
+          <button id="hideBtn" class="btn warn">가리기</button>
+        </div>
+      </div>
+      <div class="idx" id="idx">0 / 0</div>
+      <div class="footer">엑셀 형식 예시: 열A=일본어, 열B=뜻, 열C=발음 (파일명 <b>japanese.xlsx</b> 권장)</div>
+    </div>
+
+  </div>
+
+  <script>
+    // 기본 데이터 (엑셀을 불러오면 이 데이터를 대체함)
+    let cards = [
+      { 일본어: "さすが", 뜻: "역시", 발음: "사스가" },
+      { 일본어: "えらい", 뜻: "대단해", 발음: "에라이" },
+      { 일본어: "すばらしい", 뜻: "훌륭해", 발음: "스바라시~" },
+      { 일본어: "天才だよ", 뜻: "천재야", 발음: "텐사이 다요" },
+      { 일본어: "とても上手", 뜻: "엄청 잘하네", 발음: "토테모 조~즈" },
+      { 일본어: "やっぱり", 뜻: "역시", 발음: "얍빠리" },
+    ];
+
+    // 상태
+    let idx = 0;  // 현재 카드 인덱스
+    let revealed = false;
+
+    const $ = (id) => document.getElementById(id);
+    const jpn = $("jpn"), mean = $("mean"), pron = $("pron"), idxEl = $("idx");
+
+    function render() {
+      if (!cards.length) {
+        jpn.textContent = "데이터 없음";
+        mean.textContent = "—"; pron.textContent = "—";
+        idxEl.textContent = "0 / 0"; return;
+      }
+      const c = cards[idx];
+      jpn.textContent = c["일본어"] ?? c["A"] ?? Object.values(c)[0] ?? "?";
+      mean.textContent = c["뜻"] ?? c["B"] ?? Object.values(c)[1] ?? "";
+      pron.textContent = c["발음"] ?? c["C"] ?? Object.values(c)[2] ?? "";
+      idxEl.textContent = `${idx+1} / ${cards.length}`;
+      setReveal(revealed);
+    }
+
+    function setReveal(v){
+      revealed = v;
+      [mean, pron].forEach(el=> el.classList.toggle('hidden', !revealed));
+    }
+
+    function next(n=1){ if(!cards.length) return; idx = (idx + n + cards.length) % cards.length; setReveal(false); render(); }
+
+    function shuffle(){
+      for(let i = cards.length - 1; i > 0; i--){
+        const j = Math.floor(Math.random() * (i+1));
+        [cards[i], cards[j]] = [cards[j], cards[i]];
+      }
+      idx = 0; setReveal(false); render();
+    }
+
+    $("nextBtn").onclick = () => next(1);
+    $("prevBtn").onclick = () => next(-1);
+    $("revealBtn").onclick = () => setReveal(true);
+    $("hideBtn").onclick = () => setReveal(false);
+    $("shuffleBtn").onclick = shuffle;
+    $("resetBtn").onclick = () => { idx = 0; setReveal(false); render(); };
+
+    // XLSX 업로드 처리
+    const xlsxInput = $("xlsxInput");
+    xlsxInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { defval:"" });
+      // 유연한 키 지원: '일본어'/'뜻'/'발음' 또는 A/B/C 기반
+      const normalized = rows.map(r => ({
+        일본어: r['일본어'] ?? r['A'] ?? r[Object.keys(r)[0]] ?? '',
