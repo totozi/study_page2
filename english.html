@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>영어 작문 연습</title>
+  <style>
+    :root{--bg:#f6f7fb;--card:#fff;--ink:#222;--muted:#666;--accent:#4f46e5}
+    *{box-sizing:border-box}
+    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif}
+    header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid #e5e7eb}
+    .wrap{max-width:800px;margin:0 auto;padding:16px}
+    h1{font-size:22px;margin:6px 0 12px}
+    .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .btn{border:1px solid #d1d5db;background:#fff;color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer}
+    .btn.primary{background:var(--accent);color:#fff;border-color:transparent}
+    .btn:disabled{opacity:.6;cursor:not-allowed}
+    .cards{display:grid;grid-template-columns:1fr;gap:18px;margin-top:14px}
+    .card{background:var(--card);border:1px solid #e5e7eb;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
+    .qa{display:grid;gap:10px}
+    .ko{font-size:20px;font-weight:700;text-align:center;border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#f9fafb}
+    .en{font-size:20px;text-align:center;border:1px dashed #d1d5db;border-radius:8px;padding:10px;background:#fafbff}
+    .en.hidden{filter:blur(8px);color:transparent;text-shadow:0 0 0 #9aa1af}
+    .actions{display:flex;justify-content:flex-end}
+    .pill{border:1px solid #d1d5db;background:#fff;border-radius:999px;padding:6px 10px;font-weight:600}
+    .row{display:flex;gap:8px;align-items:center}
+    input[type="number"]{width:84px;padding:8px 10px;border:1px solid #d1d5db;border-radius:10px;background:#fff}
+    .hint{color:var(--muted);font-size:13px}
+    .uploader{display:flex;gap:8px;align-items:center}
+    .file{display:inline-block}
+  </style>
+  <!-- SheetJS (XLSX) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+</head>
+<body>
+  <header>
+    <div class="wrap">
+      <h1>영어 작문 연습</h1>
+      <div class="toolbar">
+        <button id="shuffleBtn" class="btn">무작위 섞기</button>
+        <div class="row">
+          <label for="repeat">반복:</label>
+          <input id="repeat" type="number" min="1" value="1" />
+        </div>
+        <div class="uploader">
+          <input id="file" class="file" type="file" accept=".xlsx,.xls" />
+          <span class="hint">엑셀(english.xlsx) A열=영어, B열=한글</span>
+        </div>
+        <button id="revealAll" class="btn">전체 정답 보기</button>
+        <button id="hideAll" class="btn">전체 가리기</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <div id="cards" class="cards" aria-live="polite"></div>
+  </main>
+
+  <template id="card-tpl">
+    <div class="card">
+      <div class="qa">
+        <div class="ko"></div>
+        <div class="en hidden"></div>
+      </div>
+      <div class="actions" style="margin-top:10px">
+        <button class="btn reveal">정답</button>
+      </div>
+    </div>
+  </template>
+
+  <script>
+    const cardsEl = document.getElementById('cards');
+    const fileInput = document.getElementById('file');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const repeatInput = document.getElementById('repeat');
+    const revealAllBtn = document.getElementById('revealAll');
+    const hideAllBtn = document.getElementById('hideAll');
+
+    /** Load default english.xlsx if it exists next to this HTML */
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const res = await fetch('english.xlsx');
+        if (!res.ok) throw new Error('No default file');
+        const buf = await res.arrayBuffer();
+        buildFromWorkbook(XLSX.read(buf, {type:'array'}));
+      } catch (_) {
+        // ignore; user will upload a file
+      }
+    });
+
+    fileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const buf = await file.arrayBuffer();
+      const wb = XLSX.read(buf, { type: 'array' });
+      buildFromWorkbook(wb);
+    });
+
+    function buildFromWorkbook(wb){
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, { header:1, blankrows:false });
+      // Expect: column A = English, B = Korean; ignore empty lines
+      let pairs = [];
+      for (const r of rows){
+        if (!r || (r[0]===undefined && r[1]===undefined)) continue;
+        const en = String(r[0] ?? '').trim();
+        const ko = String(r[1] ?? '').trim();
+        if (!en || !ko) continue;
+        pairs.push({ en, ko });
+      }
+      render(pairs);
+    }
+
+    function render(pairs){
+      const repeat = Math.max(1, parseInt(repeatInput.value||'1',10));
+      // repeat each pair N times
+      let data = [];
+      for (let i=0;i<repeat;i++) data = data.concat(pairs);
+      shuffle(data);
+      cardsEl.innerHTML='';
+      const tpl = document.getElementById('card-tpl');
+      data.forEach(({ko,en}, idx)=>{
+        const node = tpl.content.cloneNode(true);
+        const koEl = node.querySelector('.ko');
+        const enEl = node.querySelector('.en');
+        const btn = node.querySelector('.reveal');
+        koEl.textContent = ko;
+        enEl.textContent = en;
+        btn.addEventListener('click',()=>{
+          enEl.classList.toggle('hidden');
+          btn.textContent = enEl.classList.contains('hidden')? '정답' : '가리기';
+        });
+        cardsEl.appendChild(node);
+      });
+    }
+
+    function shuffle(arr){
+      for (let i=arr.length-1;i>0;i--){
+        const j = Math.floor(Math.random()*(i+1));
+        [arr[i],arr[j]]=[arr[j],arr[i]];
+      }
+      return arr;
+    }
+
+    shuffleBtn.addEventListener('click',()=>{
+      // regenerate by pretending to change repeat -> re-read existing data on page
+      const items = Array.from(document.querySelectorAll('.card .qa')).map(q=>({
+        ko:q.querySelector('.ko').textContent,
+        en:q.querySelector('.en').textContent,
+      }));
+      // de-duplicate back to one copy per unique pair
+      const seen = new Set();
+      const pairs=[];
+      for(const it of items){
+        const k = it.ko+'\u0000'+it.en;
+        if(seen.has(k)) continue; seen.add(k); pairs.push(it);
+      }
+      render(pairs);
+    });
+
+    revealAllBtn.addEventListener('click',()=>{
+      document.querySelectorAll('.en').forEach(el=>el.classList.remove('hidden'));
+      document.querySelectorAll('.reveal').forEach(btn=>btn.textContent='가리기');
+    });
+    hideAllBtn.addEventListener('click',()=>{
+      document.querySelectorAll('.en').forEach(el=>el.classList.add('hidden'));
+      document.querySelectorAll('.reveal').forEach(btn=>btn.textContent='정답');
+    });
+  </script>
+</body>
+</html>
