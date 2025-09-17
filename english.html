@@ -117,25 +117,44 @@
       }
       render(pairs);
     }
+    /** 글자/숫자만 _ 로 바꿔서 단어 길이 보여주기 (공백/문장부호 유지) */
+    function maskText(str){
+      // don't touch spaces or punctuation; replace letters/digits with underscores
+      return str.replace(/[A-Za-z0-9]/g, '_');
+    }
 
+    /** 숨김/보임 상태에 맞춰 내용 업데이트 */
+    function applyHiddenState(enEl, hidden){
+      const answer = enEl.dataset.answer || '';
+      if(hidden){
+        enEl.classList.add('hidden');
+        enEl.textContent = maskText(answer);
+      }else{
+        enEl.classList.remove('hidden');
+        enEl.textContent = answer;
+      }
+    }
     function render(pairs){
       const repeat = Math.max(1, parseInt(repeatInput.value||'1',10));
-      // repeat each pair N times
       let data = [];
       for (let i=0;i<repeat;i++) data = data.concat(pairs);
       shuffle(data);
       cardsEl.innerHTML='';
       const tpl = document.getElementById('card-tpl');
-      data.forEach(({ko,en}, idx)=>{
+      data.forEach(({ko,en})=>{
         const node = tpl.content.cloneNode(true);
         const koEl = node.querySelector('.ko');
         const enEl = node.querySelector('.en');
         const btn = node.querySelector('.reveal');
+
         koEl.textContent = ko;
-        enEl.textContent = en;
+        enEl.dataset.answer = en;        // 정답 저장
+        applyHiddenState(enEl, true);    // 초기에는 마스크 보여주기
+
         btn.addEventListener('click',()=>{
-          enEl.classList.toggle('hidden');
-          btn.textContent = enEl.classList.contains('hidden')? '정답' : '가리기';
+          const nowHidden = !enEl.classList.contains('hidden'); // 현재 보임이면 숨기기
+          applyHiddenState(enEl, nowHidden);
+          btn.textContent = nowHidden ? '정답' : '가리기';
         });
         cardsEl.appendChild(node);
       });
@@ -149,13 +168,12 @@
       return arr;
     }
 
+    /* 셔플 후에도 중복 제거한 뒤 다시 렌더(마스크 로직 유지) */
     shuffleBtn.addEventListener('click',()=>{
-      // regenerate by pretending to change repeat -> re-read existing data on page
       const items = Array.from(document.querySelectorAll('.card .qa')).map(q=>({
-        ko:q.querySelector('.ko').textContent,
-        en:q.querySelector('.en').textContent,
+        ko: q.querySelector('.ko').textContent,
+        en: q.querySelector('.en').dataset.answer || q.querySelector('.en').textContent
       }));
-      // de-duplicate back to one copy per unique pair
       const seen = new Set();
       const pairs=[];
       for(const it of items){
@@ -165,12 +183,13 @@
       render(pairs);
     });
 
+    /* 전체 보이기/가리기도 마스크 적용 */
     revealAllBtn.addEventListener('click',()=>{
-      document.querySelectorAll('.en').forEach(el=>el.classList.remove('hidden'));
+      document.querySelectorAll('.en').forEach(el=>applyHiddenState(el, false));
       document.querySelectorAll('.reveal').forEach(btn=>btn.textContent='가리기');
     });
     hideAllBtn.addEventListener('click',()=>{
-      document.querySelectorAll('.en').forEach(el=>el.classList.add('hidden'));
+      document.querySelectorAll('.en').forEach(el=>applyHiddenState(el, true));
       document.querySelectorAll('.reveal').forEach(btn=>btn.textContent='정답');
     });
   </script>
