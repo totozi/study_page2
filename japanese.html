@@ -51,7 +51,7 @@
   </div>
 
 <script>
-  // 기본 데이터 (엑셀을 올리면 대체)
+  // 기본 데이터 (엑셀 로딩 실패 시 사용되는 fallback)
   let baseData = [
     { 일본어: 'さすが', 뜻: '역시', 발음: '사스가' },
     { 일본어: 'えらい', 뜻: '대단해', 발음: '에라이' },
@@ -86,10 +86,15 @@
 
     const row = document.createElement('div'); row.className='row';
     const btn = document.createElement('button'); btn.className='pill'; btn.textContent='정답';
-    btn.addEventListener('click',()=>{ a.classList.toggle('hidden'); btn.textContent = a.classList.contains('hidden') ? '정답' : '가리기'; });
+    btn.addEventListener('click',()=>{ 
+      a.classList.toggle('hidden'); 
+      btn.textContent = a.classList.contains('hidden') ? '정답' : '가리기'; 
+    });
     row.appendChild(btn);
 
-    wrap.appendChild(q); wrap.appendChild(a); wrap.appendChild(row);
+    wrap.appendChild(q); 
+    wrap.appendChild(a); 
+    wrap.appendChild(row);
     return wrap;
   }
 
@@ -102,32 +107,77 @@
   }
 
   function shuffle(arr){
-    for(let i=arr.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [arr[i],arr[j]]=[arr[j],arr[i]]; }
+    for(let i=arr.length-1;i>0;i--){ 
+      const j=Math.floor(Math.random()*(i+1)); 
+      [arr[i],arr[j]]=[arr[j],arr[i]]; 
+    }
   }
 
   $('shuffleBtn').onclick = ()=>{ shuffle(baseData); render(baseData); };
   $('repeatInput').addEventListener('change', ()=> render(baseData));
-  $('revealAll').onclick = ()=>{ document.querySelectorAll('.answer').forEach(el=>el.classList.remove('hidden')); document.querySelectorAll('.pill').forEach(b=>b.textContent='가리기'); };
-  $('hideAll').onclick = ()=>{ document.querySelectorAll('.answer').forEach(el=>el.classList.add('hidden')); document.querySelectorAll('.pill').forEach(b=>b.textContent='정답'); };
+  $('revealAll').onclick = ()=>{
+    document.querySelectorAll('.answer').forEach(el=>el.classList.remove('hidden'));
+    document.querySelectorAll('.pill').forEach(b=>b.textContent='가리기');
+  };
+  $('hideAll').onclick = ()=>{
+    document.querySelectorAll('.answer').forEach(el=>el.classList.add('hidden'));
+    document.querySelectorAll('.pill').forEach(b=>b.textContent='정답');
+  };
 
-  // XLSX 로딩
+  // 공통: 엑셀 rows를 우리가 쓰는 형식으로 변환
+  function normalizeRows(rows){
+    return rows.map(r=>({
+      일본어: r['일본어'] ?? r['A'] ?? r[Object.keys(r)[0]] ?? '',
+      뜻:    r['뜻']    ?? r['B'] ?? r[Object.keys(r)[1]] ?? '',
+      발음:  r['발음']  ?? r['C'] ?? r[Object.keys(r)[2]] ?? '',
+    })).filter(x=>x.일본어);
+  }
+
+  // 페이지 로드 시 같은 폴더의 japanese.xlsx 자동 로딩
+  async function loadDefaultXlsx(){
+    try{
+      const res = await fetch('japanese.xlsx');
+      if(!res.ok){
+        console.warn('japanese.xlsx 요청 실패, 기본 데이터 사용');
+        return;
+      }
+      const buf = await res.arrayBuffer();
+      const wb = XLSX.read(buf, {type:'array'});
+      const ws = wb.Sheets[wb.SheetNames[0]];
+      const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
+      const normalized = normalizeRows(rows);
+      if(normalized.length){
+        baseData = normalized;
+      }else{
+        console.warn('japanese.xlsx 내용이 비어있어서 기본 데이터 사용');
+      }
+    }catch(err){
+      console.error('japanese.xlsx 자동 로딩 중 오류:', err);
+    }
+  }
+
+  // 파일 선택으로 업로드하는 경우
   $('xlsxInput').addEventListener('change', async (e)=>{
-    const file = e.target.files?.[0]; if(!file) return;
+    const file = e.target.files?.[0]; 
+    if(!file) return;
     const buf = await file.arrayBuffer();
     const wb = XLSX.read(buf, {type:'array'});
     const ws = wb.Sheets[wb.SheetNames[0]];
     const rows = XLSX.utils.sheet_to_json(ws, {defval:''});
-    const normalized = rows.map(r=>({
-      일본어: r['일본어'] ?? r['A'] ?? r[Object.keys(r)[0]] ?? '',
-      뜻: r['뜻'] ?? r['B'] ?? r[Object.keys(r)[1]] ?? '',
-      발음: r['발음'] ?? r['C'] ?? r[Object.keys(r)[2]] ?? '',
-    })).filter(x=>x.일본어);
-    if(normalized.length){ baseData = normalized; render(baseData); }
+    const normalized = normalizeRows(rows);
+    if(normalized.length){ 
+      baseData = normalized; 
+      render(baseData); 
+    }
     else alert('엑셀을 읽지 못했어요. A=일본어, B=뜻, C=발음인지 확인해주세요.');
     e.target.value = '';
   });
 
-  render(baseData);
+  // 초기 실행: 엑셀 시도 후 렌더
+  (async ()=>{
+    await loadDefaultXlsx();
+    render(baseData);
+  })();
 </script>
 </body>
 </html>
