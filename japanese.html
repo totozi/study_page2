@@ -9,7 +9,6 @@
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-/* CSS 스타일: 기존 디자인 유지 */
 :root{ --bg:#f7f9fc; --text:#0f172a; --muted:#5b6476; --card:#ffffff; --ring:#d9e1ff; --accent:#2563eb; --shadow:0 10px 30px rgba(7,14,48,.06); --secondary: #e74c3c; }
 *{ box-sizing:border-box }
 body{ margin:0; font-family:Pretendard, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, sans-serif; background:var(--bg); color:var(--text); line-height:1.6 }
@@ -188,7 +187,7 @@ input[type=file]{ display:none }
     for(let r=0;r<repeat;r++) items.push(...data);
     
     items.forEach(it=> listEl.appendChild(makeCard(it)) );
-    dataStatusEl.textContent += ` (총 ${data.length}개 단어/예문 로드됨)`;
+    dataStatusEl.textContent += ` (총 ${data.length}개 단어/예문 로드)`;
   }
 
   // --- 3. 유틸리티 및 엑셀 파싱 함수 ---
