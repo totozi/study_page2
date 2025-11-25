@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>일본어 단어 퀴즈 + 예문 학습</title>
+<title>일본어 단어 퀴즈 (단어-뜻/발음)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
@@ -40,6 +40,11 @@ input[type="number"]{ width:72px; padding:8px 10px; border:1px solid #d4dcf4; bo
     font-size: 20px;
     color: var(--accent);
     margin-bottom: 10px;
+}
+.answer .furi-pron {
+    font-size: 16px;
+    color: var(--secondary);
+    font-weight: 500;
 }
 /* 예문 섹션 구분 */
 .example-section {
@@ -83,7 +88,7 @@ input[type=file]{ display:none }
 </head>
 <body>
   <div class="container">
-    <h1>일본어 단어 퀴즈 (예문 확인)</h1>
+    <h1>일본어 단어 퀴즈 (단어-뜻/발음)</h1>
     <div class="toolbar">
       <button class="btn primary" id="shuffleBtn">무작위 섞기</button>
       <label class="hint">반복:</label>
@@ -95,7 +100,7 @@ input[type=file]{ display:none }
     </div>
     <span id="dataStatus" class="top-note">
         엑셀(<b>japanese.xlsx</b>) 6개 열 순서를 확인해 주세요:<br>
-        A:**단어(問題)** B:단어발음 C:**단어뜻(正解)** D:예문 E:예문뜻 F:예문발음
+        A:단어(**문제**) B:단어발음(**정답**) C:단어뜻(**정답**) D:예문 E:예문뜻 F:예문발음
     </span>
 
     <div id="list"></div>
@@ -114,19 +119,22 @@ input[type=file]{ display:none }
     const wrap = document.createElement('div');
     wrap.className = 'card';
 
-    // 문제 영역: A열 (일본어 단어)를 문제로 제시
+    // 문제 영역: A열 (일본어 단어)만 문제로 제시
     const q = document.createElement('div');
     q.className = 'question';
-    // 단어에 후리가나(B열)가 있다면 같이 표시 (정답 유추를 돕기 위해)
-    q.textContent = item.word + (item.word_furi ? ' [' + item.word_furi + ']' : ''); 
+    q.textContent = item.word; 
 
-    // 정답 영역 (C: 단어 뜻, D/E/F: 예문 정보)
+    // 정답 영역 (B, C: 단어 뜻과 발음, D/E/F: 예문 정보)
     const a = document.createElement('div');
     a.className = 'answer hidden';
 
-    // C열: 단어 한국어 뜻 (핵심 정답)
+    // C열: 단어 한국어 뜻 (핵심 정답 1)
     const wordKrRow = document.createElement('div');
-    wordKrRow.innerHTML = `<div class="label">단어 뜻 (정답)</div><div class="line core-answer blur">${item.word_kr}</div>`;
+    wordKrRow.innerHTML = `<div class="label">단어 뜻 (C열)</div><div class="line core-answer blur">${item.word_kr}</div>`;
+
+    // B열: 후리가나/발음 (핵심 정답 2)
+    const wordFuriRow = document.createElement('div');
+    wordFuriRow.innerHTML = `<div class="label">발음 / 후리가나 (B열)</div><div class="line furi-pron blur">${item.word_furi}</div>`;
 
     // 예문 섹션 (D, E, F열)
     const exampleSection = document.createElement('div');
@@ -138,19 +146,20 @@ input[type=file]{ display:none }
     
     // F열: 예문 발음 (후리가나)
     const exampleFuriRow = document.createElement('div');
-    exampleFuriRow.innerHTML = `<div class="label">예문 발음 (후리가나)</div><div class="line blur">${item.example_furi}</div>`;
+    exampleFuriRow.innerHTML = `<div class="label">예문 발음 (F열)</div><div class="line blur">${item.example_furi}</div>`;
     
     // E열: 예문 한국어 뜻
     const exampleKrRowIn = document.createElement('div');
-    exampleKrRowIn.innerHTML = `<div class="label">예문 뜻 (한국어)</div><div class="line blur">${item.example_kr}</div>`;
+    exampleKrRowIn.innerHTML = `<div class="label">예문 뜻 (E열)</div><div class="line blur">${item.example_kr}</div>`;
 
-    exampleSection.appendChild(exampleJpRow);
-    exampleSection.appendChild(exampleFuriRow);
-    exampleSection.appendChild(exampleKrRowIn);
-    
     a.appendChild(wordKrRow); 
+    a.appendChild(wordFuriRow);
+    
     // 예문 내용이 있을 때만 섹션 추가
     if (item.example) {
+        exampleSection.appendChild(exampleJpRow);
+        exampleSection.appendChild(exampleFuriRow);
+        exampleSection.appendChild(exampleKrRowIn);
         a.appendChild(exampleSection);
     }
 
@@ -198,8 +207,8 @@ input[type=file]{ display:none }
       const keys = Object.keys(r);
       return {
         word: r[keys[0]] ?? '', // A열: 일본어 단어 (문제)
-        word_furi: r[keys[1]] ?? '', // B열: 단어 후리가나
-        word_kr: r[keys[2]] ?? '', // C열: 단어 한국어 뜻 (핵심 정답)
+        word_furi: r[keys[1]] ?? '', // B열: 단어 후리가나 (정답)
+        word_kr: r[keys[2]] ?? '', // C열: 단어 한국어 뜻 (정답)
         example: r[keys[3]] ?? '', // D열: 일본어 예문
         example_kr: r[keys[4]] ?? '', // E열: 예문 한국어 뜻
         example_furi: r[keys[5]] ?? '', // F열: 예문 후리가나
