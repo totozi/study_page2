@@ -3,19 +3,18 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>일본어 예문 독해/작문 연습</title>
+<title>일본어 단어 퀴즈 + 예문 학습</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <style>
-/* CSS 스타일: 사용자 지정 변수 및 기본 스타일 */
-:root{ --bg:#f7f9fc; --text:#0f172a; --muted:#5b6476; --card:#ffffff; --ring:#d9e1ff; --accent:#2563eb; --shadow:0 10px 30px rgba(7,14,48,.06); }
+/* CSS 스타일: 기존 디자인 유지 */
+:root{ --bg:#f7f9fc; --text:#0f172a; --muted:#5b6476; --card:#ffffff; --ring:#d9e1ff; --accent:#2563eb; --shadow:0 10px 30px rgba(7,14,48,.06); --secondary: #e74c3c; }
 *{ box-sizing:border-box }
 body{ margin:0; font-family:Pretendard, ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Noto Sans KR, sans-serif; background:var(--bg); color:var(--text); line-height:1.6 }
 .container{ max-width:900px; margin:26px auto; padding:0 16px }
 h1{ margin:0 0 12px; font-size:28px }
-/* 툴바 스타일 */
 .toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:14px }
 .btn{ border:1px solid #cfd7ee; background:#fff; border-radius:10px; padding:10px 14px; font-weight:600; cursor:pointer; box-shadow:var(--shadow); transition: all 0.2s }
 .btn:hover{ background:#f3f6ff }
@@ -27,37 +26,42 @@ input[type="number"]{ width:72px; padding:8px 10px; border:1px solid #d4dcf4; bo
 
 /* 카드 및 문제/정답 스타일 */
 .card{ background:var(--card); border:1px solid #e6ecff; border-radius:16px; padding:14px; box-shadow:var(--shadow); margin:18px 0 }
-.question{ font-size:22px; font-weight:800; letter-spacing:.2px; padding:16px; border:1px solid #e4e9fb; border-radius:12px; background:#fbfdff; color:#2563eb; }
+/* 문제: 단어 */
+.question{ font-size:26px; font-weight:800; letter-spacing:.2px; padding:20px 16px; border:1px solid #e4e9fb; border-radius:12px; background:#fbfdff; color:var(--secondary); text-align: center; } 
 
-/* 퀴즈 정답 섹션 */
+/* 정답 영역 */
 .answer{ position:relative; margin-top:14px; padding:18px; border-radius:12px; background:#f7f9ff; color:var(--text); border:1px dashed #cdd7fb }
 .answer.hidden .blur{ filter: blur(7px); opacity:.65; transition: filter 0.3s, opacity 0.3s }
 .answer .label{ font-size:12px; color:var(--muted); margin-bottom:6px }
 .answer .line{ font-size:18px; font-weight:700 }
+
+/* 핵심 정답 강조 */
+.answer .core-answer {
+    font-size: 20px;
+    color: var(--accent);
+    margin-bottom: 10px;
+}
+/* 예문 섹션 구분 */
+.example-section {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px solid #e0e8ff;
+}
+.example-section .label {
+    color: var(--secondary);
+    font-weight: 600;
+}
+.example-section .line {
+    font-size: 16px;
+    font-weight: 400;
+}
+
+
 .row{ display:flex; justify-content:flex-end; margin-top:12px }
 .pill{ border:1px solid #d4dcf4; background:#fff; padding:8px 12px; border-radius:10px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); transition: all 0.2s }
 .pill:hover{ background:#f3f6ff }
 .top-note{ margin:4px 0 18px; font-size:12px; color:var(--muted); line-height: 1.4 }
 input[type=file]{ display:none }
-
-/* 후리가나 스타일 */
-.furi-line { 
-    display: block; 
-    font-size: 1.1em;
-    margin-bottom: 5px;
-}
-.furi-jp {
-    font-size: 1.5em;
-    font-weight: bold;
-    display: block;
-}
-.furi-rt {
-    font-size: 0.7em;
-    color: #8e44ad; /* 후리가나 색상 */
-    display: block;
-    margin-top: -5px; /* 후리가나와 본문 간격 조정 */
-}
-
 
 /* 모바일 대응 */
 @media (max-width: 600px) {
@@ -79,7 +83,7 @@ input[type=file]{ display:none }
 </head>
 <body>
   <div class="container">
-    <h1>일본어 예문 독해/작문 연습</h1>
+    <h1>일본어 단어 퀴즈 (예문 확인)</h1>
     <div class="toolbar">
       <button class="btn primary" id="shuffleBtn">무작위 섞기</button>
       <label class="hint">반복:</label>
@@ -90,8 +94,8 @@ input[type=file]{ display:none }
       <button class="btn ghost" id="hideAll">전체 가리기</button>
     </div>
     <span id="dataStatus" class="top-note">
-        **japanese.xlsx** 파일의 A~F열 순서를 확인해 주세요:<br>
-        A:핵심단어(日) B:단어발음(ふりがな) C:단어뜻(韓) **D:예문(日) E:예문뜻(韓) F:예문발음(ふりがな)**
+        엑셀(<b>japanese.xlsx</b>) 6개 열 순서를 확인해 주세요:<br>
+        A:**단어(問題)** B:단어발음 C:**단어뜻(正解)** D:예문 E:예문뜻 F:예문발음
     </span>
 
     <div id="list"></div>
@@ -105,49 +109,50 @@ input[type=file]{ display:none }
   const listEl = $('list');
   const dataStatusEl = $('dataStatus');
 
-  // --- 1. 카드 생성 함수 (예문 중심) ---
+  // --- 1. 카드 생성 함수 (단어 퀴즈 + 예문 제시) ---
   function makeCard(item){
     const wrap = document.createElement('div');
     wrap.className = 'card';
 
-    // 문제 영역: D열 (일본어 예문)을 문제로 제시
+    // 문제 영역: A열 (일본어 단어)를 문제로 제시
     const q = document.createElement('div');
     q.className = 'question';
-    
-    // <ruby> 태그를 사용하여 예문 (D)과 예문 후리가나 (F)를 결합
-    // *주의: 엑셀에서 후리가나와 원문이 분리되어 있으므로, <ruby>는 렌더링 후 생성됨.
-    // 렌더링 전에는 원문(예문)에 후리가나(F)를 띄어쓰기로 분리하여 표시하고, 후리가나는 블러 처리.
-    
-    // 예문 일본어 원문 (D)
-    q.textContent = item.example; 
+    // 단어에 후리가나(B열)가 있다면 같이 표시 (정답 유추를 돕기 위해)
+    q.textContent = item.word + (item.word_furi ? ' [' + item.word_furi + ']' : ''); 
 
-    // 정답 영역 (E: 예문 뜻, A/B/C: 핵심 단어 정보)
+    // 정답 영역 (C: 단어 뜻, D/E/F: 예문 정보)
     const a = document.createElement('div');
     a.className = 'answer hidden';
 
-    // E열: 예문 한국어 뜻 (가장 중요한 정답)
-    const exampleKrRow = document.createElement('div');
-    exampleKrRow.innerHTML = `<div class="label">예문 전체 뜻 (E열)</div><div class="line blur">${item.example_kr}</div>`;
+    // C열: 단어 한국어 뜻 (핵심 정답)
+    const wordKrRow = document.createElement('div');
+    wordKrRow.innerHTML = `<div class="label">단어 뜻 (정답)</div><div class="line core-answer blur">${item.word_kr}</div>`;
+
+    // 예문 섹션 (D, E, F열)
+    const exampleSection = document.createElement('div');
+    exampleSection.className = 'example-section';
     
-    // F열: 예문 후리가나 (독해 힌트)
+    // D열: 일본어 예문
+    const exampleJpRow = document.createElement('div');
+    exampleJpRow.innerHTML = `<div class="label">예문 (일본어)</div><div class="line blur">${item.example}</div>`;
+    
+    // F열: 예문 발음 (후리가나)
     const exampleFuriRow = document.createElement('div');
-    // 예문 전체에 후리가나 적용 (블러 처리)
-    exampleFuriRow.innerHTML = `<div class="label">예문 발음 (F열)</div><div class="line blur furi-line">${item.example_furi}</div>`;
+    exampleFuriRow.innerHTML = `<div class="label">예문 발음 (후리가나)</div><div class="line blur">${item.example_furi}</div>`;
+    
+    // E열: 예문 한국어 뜻
+    const exampleKrRowIn = document.createElement('div');
+    exampleKrRowIn.innerHTML = `<div class="label">예문 뜻 (한국어)</div><div class="line blur">${item.example_kr}</div>`;
 
-    // A/B/C열: 핵심 단어 리뷰
-    const coreWordRow = document.createElement('div');
-    coreWordRow.style.marginTop = '15px';
-    coreWordRow.innerHTML = `
-        <div class="label">핵심 단어 리뷰 (A, B, C열)</div>
-        <div class="line blur">
-            <span class="furi-jp">${item.word}</span> / 
-            <span class="furi-rt">${item.word_furi}</span> / 
-            <span>${item.word_kr}</span>
-        </div>`;
-
-    a.appendChild(exampleKrRow); 
-    a.appendChild(exampleFuriRow);
-    a.appendChild(coreWordRow);
+    exampleSection.appendChild(exampleJpRow);
+    exampleSection.appendChild(exampleFuriRow);
+    exampleSection.appendChild(exampleKrRowIn);
+    
+    a.appendChild(wordKrRow); 
+    // 예문 내용이 있을 때만 섹션 추가
+    if (item.example) {
+        a.appendChild(exampleSection);
+    }
 
     // 정답 보기/가리기 버튼
     const row = document.createElement('div'); row.className='row';
@@ -174,7 +179,7 @@ input[type=file]{ display:none }
     for(let r=0;r<repeat;r++) items.push(...data);
     
     items.forEach(it=> listEl.appendChild(makeCard(it)) );
-    dataStatusEl.textContent += ` (총 ${data.length}개 어휘/예문 로드됨)`;
+    dataStatusEl.textContent += ` (총 ${data.length}개 단어/예문 로드됨)`;
   }
 
   // --- 3. 유틸리티 및 엑셀 파싱 함수 ---
@@ -189,18 +194,17 @@ input[type=file]{ display:none }
   function normalizeRows(rows){
     if (rows.length === 0) return [];
     
-    // 엑셀의 첫 번째 행(헤더)을 키로 사용 (XLSX.utils.sheet_to_json 기본 동작)
     return rows.map(r=>{
       const keys = Object.keys(r);
       return {
-        word: r[keys[0]] ?? '', // A열: 일본어 단어
-        word_furi: r[keys[1]] ?? '', // B열: 후리가나
-        word_kr: r[keys[2]] ?? '', // C열: 단어 한국어 뜻
-        example: r[keys[3]] ?? '', // D열: 일본어 예문 (문제)
-        example_kr: r[keys[4]] ?? '', // E열: 예문 한국어 뜻 (정답)
+        word: r[keys[0]] ?? '', // A열: 일본어 단어 (문제)
+        word_furi: r[keys[1]] ?? '', // B열: 단어 후리가나
+        word_kr: r[keys[2]] ?? '', // C열: 단어 한국어 뜻 (핵심 정답)
+        example: r[keys[3]] ?? '', // D열: 일본어 예문
+        example_kr: r[keys[4]] ?? '', // E열: 예문 한국어 뜻
         example_furi: r[keys[5]] ?? '', // F열: 예문 후리가나
       }
-    }).filter(x => x.example); // 예문(D열)이 있는 유효한 행만 사용
+    }).filter(x => x.word); // 단어(A열)가 있는 유효한 행만 사용
   }
   
   // --- 4. 이벤트 리스너 ---
@@ -235,9 +239,9 @@ input[type=file]{ display:none }
       if(normalized.length){ 
         baseData = normalized; 
         render(baseData); 
-        dataStatusEl.textContent = `"${file.name}" 로드 완료. (총 ${baseData.length}개 예문)`;
+        dataStatusEl.textContent = `"${file.name}" 로드 완료. (총 ${baseData.length}개 단어)`;
       } else {
-        alert('엑셀을 읽었으나 유효한 예문 데이터(D열)가 없습니다. 6개 열 순서를 확인해주세요.');
+        alert('엑셀을 읽었으나 유효한 데이터(A열)가 없습니다. 6개 열 순서를 확인해주세요.');
         dataStatusEl.textContent = '유효한 엑셀 데이터를 찾을 수 없습니다.';
       }
     } catch (err) {
@@ -263,7 +267,7 @@ input[type=file]{ display:none }
       
       if(normalized.length){
         baseData = normalized;
-        dataStatusEl.innerHTML = `**japanese.xlsx** 자동 로드 완료. (총 ${baseData.length}개 예문)`;
+        dataStatusEl.innerHTML = `**japanese.xlsx** 자동 로드 완료. (총 ${baseData.length}개 단어)`;
       }else{
         throw new Error('엑셀 파일의 내용이 비어있습니다.');
       }
