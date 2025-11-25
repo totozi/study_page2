@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>카타카나 발음 맞추기 연습</title>
+    <title>카타카나 발음 맞추기 연습 (정답 바로 보기)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -20,92 +20,75 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             width: 90%;
             max-width: 500px;
+            text-align: center;
         }
         h1 {
             color: #333;
-            text-align: center;
             margin-bottom: 30px;
         }
         .quiz-area {
-            text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 30px;
         }
         #romaji {
-            font-size: 3em;
+            font-size: 4em;
             font-weight: bold;
             color: #007bff;
             margin-bottom: 20px;
             display: block;
         }
-        #inputKana {
-            padding: 10px;
-            font-size: 1.5em;
-            width: 80%;
-            text-align: center;
-            border: 2px solid #ccc;
-            border-radius: 5px;
-            margin-bottom: 10px;
+        #answerDisplay {
+            min-height: 40px; /* 정답이 없을 때도 높이를 유지 */
+            font-size: 3em;
+            font-weight: bold;
+            color: #dc3545; /* 정답 강조 색상 */
+            margin-top: 20px;
         }
         button {
             padding: 10px 20px;
-            font-size: 1em;
+            font-size: 1.1em;
             cursor: pointer;
             border: none;
             border-radius: 5px;
             transition: background-color 0.3s;
             margin: 5px;
+            width: 45%;
         }
-        #checkBtn {
-            background-color: #28a745;
-            color: white;
+        #showAnswerBtn {
+            background-color: #ffc107; /* 노란색 계열 */
+            color: #333;
         }
-        #checkBtn:hover {
-            background-color: #218838;
+        #showAnswerBtn:hover {
+            background-color: #e0a800;
         }
         #nextBtn {
-            background-color: #007bff;
+            background-color: #28a745; /* 초록색 계열 */
             color: white;
         }
         #nextBtn:hover {
-            background-color: #0056b3;
-        }
-        #result {
-            margin-top: 20px;
-            font-size: 1.2em;
-            font-weight: bold;
-        }
-        .correct {
-            color: #28a745;
-        }
-        .incorrect {
-            color: #dc3545;
-        }
-        #answerDisplay {
-            margin-top: 10px;
-            font-size: 1.5em;
-            color: #333;
+            background-color: #218838;
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>カタカナ (카타카나) 발음 맞추기 연습 ✏️</h1>
+        <h1>カタカナ (카타카나) 발음 연습 🧠</h1>
+        <p>아래 발음의 카타카나를 생각해보세요.</p>
+        
         <div class="quiz-area">
             <span id="romaji"></span>
-            <input type="text" id="inputKana" placeholder="카타카나 입력 (예: ア)">
         </div>
         
-        <div style="text-align: center;">
-            <button id="checkBtn" onclick="checkAnswer()">정답 확인</button>
+        <div id="answerDisplay">
+            </div>
+
+        <div style="margin-top: 20px;">
+            <button id="showAnswerBtn" onclick="showAnswer()">정답 확인</button>
             <button id="nextBtn" onclick="nextQuestion()">다음 문제</button>
         </div>
-
-        <div id="result"></div>
-        <div id="answerDisplay"></div>
     </div>
 
     <script>
-        // 카타카나 데이터 (발음: 카타카나) - 기본 50음도 (濁音, 拗音 등은 필요 시 추가하세요)
+        // 카타카나 데이터 (발음: 카타카나)
         const kanaMap = {
             'a': 'ア', 'i': 'イ', 'u': 'ウ', 'e': 'エ', 'o': 'オ',
             'ka': 'カ', 'ki': 'キ', 'ku': 'ク', 'ke': 'ケ', 'ko': 'コ',
@@ -117,11 +100,11 @@
             'ya': 'ヤ', 'yu': 'ユ', 'yo': 'ヨ',
             'ra': 'ラ', 'ri': 'リ', 'ru': 'ル', 're': 'レ', 'ro': 'ロ',
             'wa': 'ワ', 'wo': 'ヲ', 'n': 'ン',
-            // 추가적인 카타카나 (예시)
+            // 濁音/半濁音 등 추가
             'ga': 'ガ', 'gi': 'ギ', 'gu': 'グ', 'ge': 'ゲ', 'go': 'ゴ',
             'za': 'ザ', 'ji': 'ジ', 'zu': 'ズ', 'ze': 'ゼ', 'zo': 'ゾ',
-            'da': 'ダ', // 'di'와 'du'는 보통 ヂ/ヅ로 쓰지 않고 ヂ/ヅ도 자주 쓰진 않지만, 학습 편의를 위해 추가
-            'de': 'デ', 'do': 'ド',
+            'da': 'ダ', 'de': 'デ', 'do': 'ド',
+            'ba': 'バ', 'bi': 'ビ', 'bu': 'ブ', 'be': 'ベ', 'bo': 'ボ',
             'pa': 'パ', 'pi': 'ピ', 'pu': 'プ', 'pe': 'ペ', 'po': 'ポ'
         };
 
@@ -130,7 +113,7 @@
 
         /**
          * 배열의 요소를 무작위로 섞는 함수 (Fisher-Yates 알고리즘)
-         * @param {Array} array - 섞을 배열
+         * 이 함수를 통해 문제가 출제될 때마다 순서가 바뀝니다.
          */
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -141,64 +124,29 @@
 
         /**
          * 다음 문제를 설정하고 화면에 표시합니다.
-         * 순서를 그때그때 바꾸기 위해 'shuffleArray' 함수를 사용합니다.
          */
         function nextQuestion() {
-            // 문제를 섞어서 무작위 순서로 만듭니다.
+            // 목록을 무작위로 섞어 순서를 바꿉니다.
             shuffleArray(romajiList); 
 
-            // 현재 목록에서 첫 번째 요소를 가져옵니다.
+            // 현재 문제 로마자 설정
             currentRomaji = romajiList[0];
             
             // 화면 업데이트
             document.getElementById('romaji').textContent = currentRomaji.toUpperCase(); // 발음(로마자) 표시
-            document.getElementById('inputKana').value = ''; // 입력창 초기화
-            document.getElementById('result').textContent = ''; // 결과 메시지 초기화
-            document.getElementById('answerDisplay').textContent = ''; // 정답 표시 초기화
-            document.getElementById('inputKana').focus(); // 입력창에 포커스
-            
-            // 사용한 발음은 목록에서 제거 (선택 사항: 제거하지 않으면 무한 반복 가능)
-            // romajiList.shift(); 
-            // 현재는 매번 전체 리스트를 섞고 첫 요소를 사용하며, romajiList.shift()를 하지 않아 전체를 계속 반복합니다.
+            document.getElementById('answerDisplay').textContent = '?'; // 정답 표시 영역 초기화
         }
 
         /**
-         * 사용자의 정답을 확인합니다.
+         * 현재 문제의 정답을 표시합니다.
          */
-        function checkAnswer() {
-            const userAnswer = document.getElementById('inputKana').value.trim();
+        function showAnswer() {
             const correctAnswer = kanaMap[currentRomaji];
-            const resultElement = document.getElementById('result');
-            const answerDisplayElement = document.getElementById('answerDisplay');
-
-            if (userAnswer === '') {
-                resultElement.textContent = '카타카나를 입력해주세요.';
-                resultElement.className = 'incorrect';
-                return;
-            }
-
-            if (userAnswer === correctAnswer) {
-                resultElement.textContent = '🎉 정답입니다! 🎉';
-                resultElement.className = 'correct';
-                answerDisplayElement.textContent = ``;
-            } else {
-                resultElement.textContent = '❌ 오답입니다. 다시 시도해보세요.';
-                resultElement.className = 'incorrect';
-                answerDisplayElement.textContent = `정답: ${correctAnswer}`;
-            }
+            document.getElementById('answerDisplay').textContent = correctAnswer;
         }
 
         // 초기 로드 시 첫 문제 시작
-        window.onload = function() {
-            nextQuestion();
-            
-            // 엔터 키로 정답 확인 기능 추가
-            document.getElementById('inputKana').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    checkAnswer();
-                }
-            });
-        };
+        window.onload = nextQuestion;
     </script>
 </body>
 </html>
