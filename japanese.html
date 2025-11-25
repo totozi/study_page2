@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>일본어 작문 연습 · 문제=일본어 / 정답=뜻·발음</title>
+<title>일본어 예문 독해/작문 연습</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;600;800&display=swap" rel="stylesheet">
@@ -27,7 +27,9 @@ input[type="number"]{ width:72px; padding:8px 10px; border:1px solid #d4dcf4; bo
 
 /* 카드 및 문제/정답 스타일 */
 .card{ background:var(--card); border:1px solid #e6ecff; border-radius:16px; padding:14px; box-shadow:var(--shadow); margin:18px 0 }
-.question{ font-size:22px; font-weight:800; letter-spacing:.2px; padding:16px; border:1px solid #e4e9fb; border-radius:12px; background:#fbfdff; color:#2563eb; /* 문제(일본어) 강조 */ }
+.question{ font-size:22px; font-weight:800; letter-spacing:.2px; padding:16px; border:1px solid #e4e9fb; border-radius:12px; background:#fbfdff; color:#2563eb; }
+
+/* 퀴즈 정답 섹션 */
 .answer{ position:relative; margin-top:14px; padding:18px; border-radius:12px; background:#f7f9ff; color:var(--text); border:1px dashed #cdd7fb }
 .answer.hidden .blur{ filter: blur(7px); opacity:.65; transition: filter 0.3s, opacity 0.3s }
 .answer .label{ font-size:12px; color:var(--muted); margin-bottom:6px }
@@ -35,8 +37,27 @@ input[type="number"]{ width:72px; padding:8px 10px; border:1px solid #d4dcf4; bo
 .row{ display:flex; justify-content:flex-end; margin-top:12px }
 .pill{ border:1px solid #d4dcf4; background:#fff; padding:8px 12px; border-radius:10px; font-weight:700; cursor:pointer; box-shadow:var(--shadow); transition: all 0.2s }
 .pill:hover{ background:#f3f6ff }
-.top-note{ margin:4px 0 18px; font-size:12px; color:var(--muted) }
+.top-note{ margin:4px 0 18px; font-size:12px; color:var(--muted); line-height: 1.4 }
 input[type=file]{ display:none }
+
+/* 후리가나 스타일 */
+.furi-line { 
+    display: block; 
+    font-size: 1.1em;
+    margin-bottom: 5px;
+}
+.furi-jp {
+    font-size: 1.5em;
+    font-weight: bold;
+    display: block;
+}
+.furi-rt {
+    font-size: 0.7em;
+    color: #8e44ad; /* 후리가나 색상 */
+    display: block;
+    margin-top: -5px; /* 후리가나와 본문 간격 조정 */
+}
+
 
 /* 모바일 대응 */
 @media (max-width: 600px) {
@@ -50,10 +71,6 @@ input[type=file]{ display:none }
     input[type="number"] {
         width: 100%;
     }
-    .hint {
-        text-align: center;
-        margin: 0 !important;
-    }
     .row {
         justify-content: center;
     }
@@ -62,7 +79,7 @@ input[type=file]{ display:none }
 </head>
 <body>
   <div class="container">
-    <h1>일본어 작문 연습</h1>
+    <h1>일본어 예문 독해/작문 연습</h1>
     <div class="toolbar">
       <button class="btn primary" id="shuffleBtn">무작위 섞기</button>
       <label class="hint">반복:</label>
@@ -71,49 +88,66 @@ input[type=file]{ display:none }
       <input id="xlsxInput" type="file" accept=".xlsx,.xls" />
       <button class="btn ghost" id="revealAll">전체 정답 보기</button>
       <button class="btn ghost" id="hideAll">전체 가리기</button>
-      <span id="dataStatus" class="top-note"></span>
     </div>
+    <span id="dataStatus" class="top-note">
+        **japanese.xlsx** 파일의 A~F열 순서를 확인해 주세요:<br>
+        A:핵심단어(日) B:단어발음(ふりがな) C:단어뜻(韓) **D:예문(日) E:예문뜻(韓) F:예문발음(ふりがな)**
+    </span>
 
     <div id="list"></div>
   </div>
 
 <script>
-  // 기본 데이터 (엑셀 로딩 실패 시 사용되는 fallback)
-  let baseData = [
-    { 일본어: 'さすが', 뜻: '역시', 발음: '사스가' },
-    { 일본어: 'えらい', 뜻: '대단해', 발음: '에라이' },
-    { 일본어: 'すばらしい', 뜻: '훌륭해', 발음: '스바라시' },
-  ];
+  // 학습 데이터 배열
+  let baseData = [];
   
   const $ = (id) => document.getElementById(id);
   const listEl = $('list');
   const dataStatusEl = $('dataStatus');
 
-  // --- 1. 카드 생성 함수 ---
+  // --- 1. 카드 생성 함수 (예문 중심) ---
   function makeCard(item){
     const wrap = document.createElement('div');
     wrap.className = 'card';
 
-    // 문제 영역 (일본어 원문)
+    // 문제 영역: D열 (일본어 예문)을 문제로 제시
     const q = document.createElement('div');
     q.className = 'question';
-    // A열의 데이터를 사용
-    q.textContent = item.일본어; 
+    
+    // <ruby> 태그를 사용하여 예문 (D)과 예문 후리가나 (F)를 결합
+    // *주의: 엑셀에서 후리가나와 원문이 분리되어 있으므로, <ruby>는 렌더링 후 생성됨.
+    // 렌더링 전에는 원문(예문)에 후리가나(F)를 띄어쓰기로 분리하여 표시하고, 후리가나는 블러 처리.
+    
+    // 예문 일본어 원문 (D)
+    q.textContent = item.example; 
 
-    // 정답 영역 (뜻과 발음, 초기에는 숨김/블러 처리)
+    // 정답 영역 (E: 예문 뜻, A/B/C: 핵심 단어 정보)
     const a = document.createElement('div');
     a.className = 'answer hidden';
 
-    // B열: 뜻
-    const meanRow = document.createElement('div');
-    meanRow.innerHTML = `<div class="label">뜻</div><div class="line blur">${item.뜻}</div>`;
+    // E열: 예문 한국어 뜻 (가장 중요한 정답)
+    const exampleKrRow = document.createElement('div');
+    exampleKrRow.innerHTML = `<div class="label">예문 전체 뜻 (E열)</div><div class="line blur">${item.example_kr}</div>`;
+    
+    // F열: 예문 후리가나 (독해 힌트)
+    const exampleFuriRow = document.createElement('div');
+    // 예문 전체에 후리가나 적용 (블러 처리)
+    exampleFuriRow.innerHTML = `<div class="label">예문 발음 (F열)</div><div class="line blur furi-line">${item.example_furi}</div>`;
 
-    // C열: 발음
-    const pronRow = document.createElement('div');
-    pronRow.style.marginTop = '8px';
-    pronRow.innerHTML = `<div class="label">발음 (후리가나)</div><div class="line blur">${item.발음}</div>`;
+    // A/B/C열: 핵심 단어 리뷰
+    const coreWordRow = document.createElement('div');
+    coreWordRow.style.marginTop = '15px';
+    coreWordRow.innerHTML = `
+        <div class="label">핵심 단어 리뷰 (A, B, C열)</div>
+        <div class="line blur">
+            <span class="furi-jp">${item.word}</span> / 
+            <span class="furi-rt">${item.word_furi}</span> / 
+            <span>${item.word_kr}</span>
+        </div>`;
 
-    a.appendChild(meanRow); a.appendChild(pronRow);
+    a.appendChild(exampleKrRow); 
+    a.appendChild(exampleFuriRow);
+    a.appendChild(coreWordRow);
 
     // 정답 보기/가리기 버튼
     const row = document.createElement('div'); row.className='row';
@@ -137,14 +171,13 @@ input[type=file]{ display:none }
     const repeat = Math.max(1, parseInt($('repeatInput').value||'1', 10));
     const items = [];
     
-    // 반복 횟수만큼 데이터 복사
     for(let r=0;r<repeat;r++) items.push(...data);
     
     items.forEach(it=> listEl.appendChild(makeCard(it)) );
-    dataStatusEl.textContent = `총 ${data.length}개 어휘 (반복 ${repeat}회) 로드 완료.`;
+    dataStatusEl.textContent += ` (총 ${data.length}개 어휘/예문 로드됨)`;
   }
 
-  // --- 3. 유틸리티 함수 ---
+  // --- 3. 유틸리티 및 엑셀 파싱 함수 ---
   function shuffle(arr){
     for(let i=arr.length-1;i>0;i--){ 
       const j=Math.floor(Math.random()*(i+1)); 
@@ -152,7 +185,7 @@ input[type=file]{ display:none }
     }
   }
   
-  // 엑셀 rows를 우리가 쓰는 {일본어, 뜻, 발음} 형식으로 변환
+  // 엑셀 rows를 6개 컬럼 형식으로 변환 (A~F열 순서)
   function normalizeRows(rows){
     if (rows.length === 0) return [];
     
@@ -160,29 +193,26 @@ input[type=file]{ display:none }
     return rows.map(r=>{
       const keys = Object.keys(r);
       return {
-        // A열, B열, C열의 데이터를 각각 일본어, 뜻, 발음으로 매핑
-        일본어: r[keys[0]] ?? '', // A열
-        뜻:    r[keys[1]] ?? '', // B열
-        발음:  r[keys[2]] ?? '', // C열
+        word: r[keys[0]] ?? '', // A열: 일본어 단어
+        word_furi: r[keys[1]] ?? '', // B열: 후리가나
+        word_kr: r[keys[2]] ?? '', // C열: 단어 한국어 뜻
+        example: r[keys[3]] ?? '', // D열: 일본어 예문 (문제)
+        example_kr: r[keys[4]] ?? '', // E열: 예문 한국어 뜻 (정답)
+        example_furi: r[keys[5]] ?? '', // F열: 예문 후리가나
       }
-    }).filter(x => x.일본어); // 일본어(A열)가 있는 유효한 행만 사용
+    }).filter(x => x.example); // 예문(D열)이 있는 유효한 행만 사용
   }
   
   // --- 4. 이벤트 리스너 ---
   
-  // 무작위 섞기 버튼
   $('shuffleBtn').onclick = ()=>{ shuffle(baseData); render(baseData); };
-  
-  // 반복 횟수 변경
   $('repeatInput').addEventListener('change', ()=> render(baseData));
   
-  // 전체 정답 보기
   $('revealAll').onclick = ()=>{
     document.querySelectorAll('.answer').forEach(el=>el.classList.remove('hidden'));
     document.querySelectorAll('.pill').forEach(b=>b.textContent='가리기');
   };
   
-  // 전체 가리기
   $('hideAll').onclick = ()=>{
     document.querySelectorAll('.answer').forEach(el=>el.classList.add('hidden'));
     document.querySelectorAll('.pill').forEach(b=>b.textContent='정답');
@@ -199,16 +229,15 @@ input[type=file]{ display:none }
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(buf, {type:'array'});
       const ws = wb.Sheets[wb.SheetNames[0]];
-      // header: 1 을 제거하여 첫 번째 행을 헤더(키)로 사용
       const rows = XLSX.utils.sheet_to_json(ws, {defval:''}); 
       const normalized = normalizeRows(rows);
       
       if(normalized.length){ 
         baseData = normalized; 
         render(baseData); 
-        dataStatusEl.textContent = `"${file.name}" 로드 완료. (총 ${baseData.length}개 어휘)`;
+        dataStatusEl.textContent = `"${file.name}" 로드 완료. (총 ${baseData.length}개 예문)`;
       } else {
-        alert('엑셀을 읽었으나 유효한 데이터가 없습니다. A=일본어, B=뜻, C=발음 순서인지 확인해주세요.');
+        alert('엑셀을 읽었으나 유효한 예문 데이터(D열)가 없습니다. 6개 열 순서를 확인해주세요.');
         dataStatusEl.textContent = '유효한 엑셀 데이터를 찾을 수 없습니다.';
       }
     } catch (err) {
@@ -216,13 +245,12 @@ input[type=file]{ display:none }
       alert('엑셀 파일을 처리하는 도중 오류가 발생했습니다.');
       dataStatusEl.textContent = '파일 처리 중 오류 발생.';
     }
-    e.target.value = ''; // 같은 파일 재선택을 위해 초기화
+    e.target.value = ''; 
   });
 
   // --- 5. 초기 실행 (같은 폴더의 japanese.xlsx 자동 로딩 시도) ---
   (async ()=>{
     try{
-      // fetch로 같은 폴더의 파일을 요청 (웹 서버 환경이나 Live Server 필요)
       const res = await fetch('japanese.xlsx');
       if(!res.ok){
         throw new Error('파일을 찾거나 읽을 수 없습니다. (HTTP Status: ' + res.status + ')');
@@ -235,13 +263,13 @@ input[type=file]{ display:none }
       
       if(normalized.length){
         baseData = normalized;
-        dataStatusEl.innerHTML = `**japanese.xlsx** 자동 로드 완료.`;
+        dataStatusEl.innerHTML = `**japanese.xlsx** 자동 로드 완료. (총 ${baseData.length}개 예문)`;
       }else{
         throw new Error('엑셀 파일의 내용이 비어있습니다.');
       }
     }catch(err){
       console.warn('japanese.xlsx 자동 로딩 실패:', err.message);
-      dataStatusEl.innerHTML = '<b>japanese.xlsx</b> 자동 로드 실패. 기본 데이터 사용.';
+      dataStatusEl.innerHTML = '<b>japanese.xlsx</b> 자동 로드 실패. [파일 선택]으로 로드해 주세요.';
     }
     render(baseData);
   })();
