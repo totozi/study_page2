@@ -3,45 +3,28 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>카타카나 발음 맞추기 연습 (정답 바로 보기)</title>
+    <title>카타카나 전체 목록 발음 연습 (섞기/정답 보기)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
             display: flex;
             flex-direction: column;
             align-items: center;
-            padding-top: 50px;
+            padding-top: 20px;
             background-color: #f4f4f9;
         }
         .container {
             background-color: #ffffff;
-            padding: 30px;
+            padding: 20px;
             border-radius: 10px;
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            width: 90%;
-            max-width: 500px;
+            width: 95%;
+            max-width: 700px;
             text-align: center;
         }
         h1 {
             color: #333;
-            margin-bottom: 30px;
-        }
-        .quiz-area {
-            margin-bottom: 30px;
-        }
-        #romaji {
-            font-size: 4em;
-            font-weight: bold;
-            color: #007bff;
             margin-bottom: 20px;
-            display: block;
-        }
-        #answerDisplay {
-            min-height: 40px; /* 정답이 없을 때도 높이를 유지 */
-            font-size: 3em;
-            font-weight: bold;
-            color: #dc3545; /* 정답 강조 색상 */
-            margin-top: 20px;
         }
         button {
             padding: 10px 20px;
@@ -52,43 +35,79 @@
             transition: background-color 0.3s;
             margin: 5px;
             width: 45%;
+            max-width: 250px;
         }
-        #showAnswerBtn {
+        #toggleAnswerBtn {
             background-color: #ffc107; /* 노란색 계열 */
             color: #333;
         }
-        #showAnswerBtn:hover {
+        #toggleAnswerBtn:hover {
             background-color: #e0a800;
         }
-        #nextBtn {
+        #shuffleBtn {
             background-color: #28a745; /* 초록색 계열 */
             color: white;
         }
-        #nextBtn:hover {
+        #shuffleBtn:hover {
             background-color: #218838;
+        }
+        /* 퀴즈 테이블 스타일 */
+        .quiz-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .quiz-table th, .quiz-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            font-size: 1.1em;
+            text-align: center;
+        }
+        .quiz-table th {
+            background-color: #e9ecef;
+            color: #495057;
+        }
+        .romaji {
+            font-weight: bold;
+            color: #007bff;
+        }
+        .kana {
+            font-size: 1.5em;
+            font-weight: bold;
+            color: #dc3545;
+            min-width: 30px; /* 카나 글자의 최소 너비 확보 */
+        }
+        .hidden-kana .kana {
+            color: transparent; /* 정답 숨기기 */
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>カタカナ (카타카나) 발음 연습 🧠</h1>
-        <p>아래 발음의 카타카나를 생각해보세요.</p>
+        <h1>📝 카타카나 전체 발음 테스트</h1>
+        <p>아래 발음(로마자)을 보고 해당 카타카나를 떠올려보세요.</p>
         
-        <div class="quiz-area">
-            <span id="romaji"></span>
+        <div style="margin-bottom: 20px;">
+            <button id="toggleAnswerBtn" onclick="toggleAnswer()">정답 숨기기/보기</button>
+            <button id="shuffleBtn" onclick="shuffleQuiz()">순서 무작위 섞기</button>
         </div>
-        
-        <div id="answerDisplay">
-            </div>
 
-        <div style="margin-top: 20px;">
-            <button id="showAnswerBtn" onclick="showAnswer()">정답 확인</button>
-            <button id="nextBtn" onclick="nextQuestion()">다음 문제</button>
+        <div id="quizListArea">
+            <table class="quiz-table">
+                <thead>
+                    <tr>
+                        <th style="width: 50%;">발음 (로마자)</th>
+                        <th style="width: 50%;">카타카나</th>
+                    </tr>
+                </thead>
+                <tbody id="kanaTableBody">
+                    </tbody>
+            </table>
         </div>
     </div>
 
     <script>
-        // 카타카나 데이터 (발음: 카타카나)
+        // 카타카나 데이터 (발음: 카타카나) - 기존 데이터 유지 및 확장
         const kanaMap = {
             'a': 'ア', 'i': 'イ', 'u': 'ウ', 'e': 'エ', 'o': 'オ',
             'ka': 'カ', 'ki': 'キ', 'ku': 'ク', 'ke': 'ケ', 'ko': 'コ',
@@ -100,20 +119,35 @@
             'ya': 'ヤ', 'yu': 'ユ', 'yo': 'ヨ',
             'ra': 'ラ', 'ri': 'リ', 'ru': 'ル', 're': 'レ', 'ro': 'ロ',
             'wa': 'ワ', 'wo': 'ヲ', 'n': 'ン',
-            // 濁音/半濁音 등 추가
+            // 濁音/半濁音
             'ga': 'ガ', 'gi': 'ギ', 'gu': 'グ', 'ge': 'ゲ', 'go': 'ゴ',
             'za': 'ザ', 'ji': 'ジ', 'zu': 'ズ', 'ze': 'ゼ', 'zo': 'ゾ',
-            'da': 'ダ', 'de': 'デ', 'do': 'ド',
+            'da': 'ダ', 'di': 'ヂ', 'du': 'ヅ', 'de': 'デ', 'do': 'ド', // ヂ(di), ヅ(du) 추가
             'ba': 'バ', 'bi': 'ビ', 'bu': 'ブ', 'be': 'ベ', 'bo': 'ボ',
-            'pa': 'パ', 'pi': 'ピ', 'pu': 'プ', 'pe': 'ペ', 'po': 'ポ'
+            'pa': 'パ', 'pi': 'ピ', 'pu': 'プ', 'pe': 'ペ', 'po': 'ポ',
+            // 요음 (拗音) - 자주 쓰이는 조합 일부
+            'kya': 'キャ', 'kyu': 'キュ', 'kyo': 'キョ',
+            'sha': 'シャ', 'shu': 'シュ', 'sho': 'ショ',
+            'cha': 'チャ', 'chu': 'チュ', 'cho': 'チョ',
+            'nya': 'ニャ', 'nyu': 'ニュ', 'nyo': 'ニョ',
+            'hya': 'ヒャ', 'hyu': 'ヒュ', 'hyo': 'ヒョ',
+            'mya': 'ミャ', 'myu': 'ミュ', 'myo': 'ミョ',
+            'rya': 'リャ', 'ryu': 'リュ', 'ryo': 'リョ',
+            'gya': 'ギャ', 'gyu': 'ギュ', 'gyo': 'ギョ',
+            'ja': 'ジャ', 'ju': 'ジュ', 'jo': 'ジョ',
+            'bya': 'ビャ', 'byu': 'ビュ', 'byo': 'ビョ',
+            'pya': 'ピャ', 'pyu': 'ピュ', 'pyo': 'ピョ',
+            // 외래어용 확장 카나 (일부)
+            'fa': 'ファ', 'fi': 'フィ', 'fe': 'フェ', 'fo': 'フォ',
+            'ti': 'ティ', 'tu': 'トゥ',
+            'di': 'ディ', 'du': 'ドゥ',
+            'vi': 'ヴィ', 've': 'ヴェ', 'vo': 'ヴォ'
         };
 
-        let romajiList = Object.keys(kanaMap);
-        let currentRomaji = '';
+        let kanaEntries = Object.entries(kanaMap); // [로마자, 카타카나] 배열
 
         /**
          * 배열의 요소를 무작위로 섞는 함수 (Fisher-Yates 알고리즘)
-         * 이 함수를 통해 문제가 출제될 때마다 순서가 바뀝니다.
          */
         function shuffleArray(array) {
             for (let i = array.length - 1; i > 0; i--) {
@@ -123,30 +157,67 @@
         }
 
         /**
-         * 다음 문제를 설정하고 화면에 표시합니다.
+         * 카타카나 목록을 화면에 표시합니다.
+         * @param {Array<Array<string>>} entries - [로마자, 카타카나] 배열
          */
-        function nextQuestion() {
-            // 목록을 무작위로 섞어 순서를 바꿉니다.
-            shuffleArray(romajiList); 
+        function renderQuizList(entries) {
+            const tbody = document.getElementById('kanaTableBody');
+            tbody.innerHTML = ''; // 기존 내용 지우기
 
-            // 현재 문제 로마자 설정
-            currentRomaji = romajiList[0];
+            entries.forEach(([romaji, kana]) => {
+                const tr = document.createElement('tr');
+                tr.classList.add('hidden-kana'); // 초기에는 정답 숨기기
+                
+                tr.innerHTML = `
+                    <td class="romaji">${romaji.toUpperCase()}</td>
+                    <td class="kana-col"><span class="kana">${kana}</span></td>
+                `;
+                tbody.appendChild(tr);
+            });
             
-            // 화면 업데이트
-            document.getElementById('romaji').textContent = currentRomaji.toUpperCase(); // 발음(로마자) 표시
-            document.getElementById('answerDisplay').textContent = '?'; // 정답 표시 영역 초기화
+            // 버튼 텍스트를 '정답 보기'로 초기화 (숨겨진 상태이므로)
+            document.getElementById('toggleAnswerBtn').textContent = '정답 보기';
         }
 
         /**
-         * 현재 문제의 정답을 표시합니다.
+         * 퀴즈 목록의 순서를 무작위로 섞고 다시 표시합니다.
          */
-        function showAnswer() {
-            const correctAnswer = kanaMap[currentRomaji];
-            document.getElementById('answerDisplay').textContent = correctAnswer;
+        function shuffleQuiz() {
+            shuffleArray(kanaEntries); // 데이터 자체를 섞음
+            renderQuizList(kanaEntries); // 섞인 데이터로 목록을 새로 그립니다.
+            alert('카타카나 순서를 무작위로 섞었습니다! 다시 테스트를 시작하세요.');
         }
 
-        // 초기 로드 시 첫 문제 시작
-        window.onload = nextQuestion;
+        /**
+         * 정답을 숨기거나 보이게 합니다.
+         */
+        function toggleAnswer() {
+            const rows = document.getElementById('kanaTableBody').getElementsByTagName('tr');
+            const button = document.getElementById('toggleAnswerBtn');
+            let isHidden = rows[0].classList.contains('hidden-kana');
+
+            for (const row of rows) {
+                if (isHidden) {
+                    row.classList.remove('hidden-kana');
+                } else {
+                    row.classList.add('hidden-kana');
+                }
+            }
+            
+            // 버튼 텍스트 업데이트
+            if (isHidden) {
+                button.textContent = '정답 숨기기';
+                button.style.backgroundColor = '#28a745'; // 초록색 계열로 변경
+            } else {
+                button.textContent = '정답 보기';
+                button.style.backgroundColor = '#ffc107'; // 노란색 계열로 변경
+            }
+        }
+
+        // 초기 로드 시 전체 목록 표시 및 섞기
+        window.onload = function() {
+            shuffleQuiz(); // 페이지 로드 시 한 번 섞어서 표시
+        };
     </script>
 </body>
 </html>
