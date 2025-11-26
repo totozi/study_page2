@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>카타카나 전체 목록 발음 연습 (섞기/정답 보기)</title>
+    <title>카타카나 전체 목록 발음 연습 (개별 정답 확인)</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -26,8 +26,8 @@
             color: #333;
             margin-bottom: 20px;
         }
-        button {
-            padding: 10px 20px;
+        .control-buttons button {
+            padding: 10px 15px;
             font-size: 1.1em;
             cursor: pointer;
             border: none;
@@ -56,11 +56,12 @@
             width: 100%;
             border-collapse: collapse;
             margin-top: 20px;
+            table-layout: fixed; /* 테이블 레이아웃 고정 */
         }
         .quiz-table th, .quiz-table td {
             border: 1px solid #ddd;
-            padding: 10px;
-            font-size: 1.1em;
+            padding: 10px 5px;
+            font-size: 1.0em;
             text-align: center;
         }
         .quiz-table th {
@@ -72,12 +73,27 @@
             color: #007bff;
         }
         .kana {
-            font-size: 1.5em;
+            font-size: 1.4em;
             font-weight: bold;
             color: #dc3545;
-            min-width: 30px; /* 카나 글자의 최소 너비 확보 */
+            transition: color 0.3s;
         }
-        .hidden-kana .kana {
+        /* 개별 정답 버튼 스타일 */
+        .toggle-single-btn {
+            background-color: #17a2b8; /* 파란색 계열 */
+            color: white;
+            padding: 5px 10px;
+            font-size: 0.9em;
+            border-radius: 3px;
+            cursor: pointer;
+            border: none;
+            margin-left: 5px;
+            min-width: 75px;
+        }
+        .toggle-single-btn:hover {
+            background-color: #138496;
+        }
+        .kana-hidden .kana {
             color: transparent; /* 정답 숨기기 */
         }
     </style>
@@ -87,8 +103,8 @@
         <h1>📝 카타카나 전체 발음 테스트</h1>
         <p>아래 발음(로마자)을 보고 해당 카타카나를 떠올려보세요.</p>
         
-        <div style="margin-bottom: 20px;">
-            <button id="toggleAnswerBtn" onclick="toggleAnswer()">정답 숨기기/보기</button>
+        <div class="control-buttons">
+            <button id="toggleAnswerBtn" onclick="toggleAllAnswers()">전체 정답 보기/숨기기</button>
             <button id="shuffleBtn" onclick="shuffleQuiz()">순서 무작위 섞기</button>
         </div>
 
@@ -96,8 +112,9 @@
             <table class="quiz-table">
                 <thead>
                     <tr>
-                        <th style="width: 50%;">발음 (로마자)</th>
-                        <th style="width: 50%;">카타카나</th>
+                        <th style="width: 35%;">발음 (로마자)</th>
+                        <th style="width: 40%;">카타카나</th>
+                        <th style="width: 25%;">개별 확인</th>
                     </tr>
                 </thead>
                 <tbody id="kanaTableBody">
@@ -107,7 +124,7 @@
     </div>
 
     <script>
-        // 카타카나 데이터 (발음: 카타카나) - 기존 데이터 유지 및 확장
+        // 카타카나 데이터 (발음: 카타카나) - 이전과 동일한 데이터 사용
         const kanaMap = {
             'a': 'ア', 'i': 'イ', 'u': 'ウ', 'e': 'エ', 'o': 'オ',
             'ka': 'カ', 'ki': 'キ', 'ku': 'ク', 'ke': 'ケ', 'ko': 'コ',
@@ -122,10 +139,10 @@
             // 濁音/半濁音
             'ga': 'ガ', 'gi': 'ギ', 'gu': 'グ', 'ge': 'ゲ', 'go': 'ゴ',
             'za': 'ザ', 'ji': 'ジ', 'zu': 'ズ', 'ze': 'ゼ', 'zo': 'ゾ',
-            'da': 'ダ', 'di': 'ヂ', 'du': 'ヅ', 'de': 'デ', 'do': 'ド', // ヂ(di), ヅ(du) 추가
+            'da': 'ダ', 'di': 'ヂ', 'du': 'ヅ', 'de': 'デ', 'do': 'ド',
             'ba': 'バ', 'bi': 'ビ', 'bu': 'ブ', 'be': 'ベ', 'bo': 'ボ',
             'pa': 'パ', 'pi': 'ピ', 'pu': 'プ', 'pe': 'ペ', 'po': 'ポ',
-            // 요음 (拗音) - 자주 쓰이는 조합 일부
+            // 요음 (拗音)
             'kya': 'キャ', 'kyu': 'キュ', 'kyo': 'キョ',
             'sha': 'シャ', 'shu': 'シュ', 'sho': 'ショ',
             'cha': 'チャ', 'chu': 'チュ', 'cho': 'チョ',
@@ -158,25 +175,26 @@
 
         /**
          * 카타카나 목록을 화면에 표시합니다.
-         * @param {Array<Array<string>>} entries - [로마자, 카타카나] 배열
          */
         function renderQuizList(entries) {
             const tbody = document.getElementById('kanaTableBody');
             tbody.innerHTML = ''; // 기존 내용 지우기
 
-            entries.forEach(([romaji, kana]) => {
+            entries.forEach(([romaji, kana], index) => {
                 const tr = document.createElement('tr');
-                tr.classList.add('hidden-kana'); // 초기에는 정답 숨기기
+                tr.classList.add('kana-hidden'); // 초기에는 정답 숨기기
                 
                 tr.innerHTML = `
                     <td class="romaji">${romaji.toUpperCase()}</td>
-                    <td class="kana-col"><span class="kana">${kana}</span></td>
+                    <td><span class="kana">${kana}</span></td>
+                    <td><button class="toggle-single-btn" onclick="toggleSingleAnswer(this, ${index})">정답 확인</button></td>
                 `;
                 tbody.appendChild(tr);
             });
             
-            // 버튼 텍스트를 '정답 보기'로 초기화 (숨겨진 상태이므로)
-            document.getElementById('toggleAnswerBtn').textContent = '정답 보기';
+            // 전체 토글 버튼 텍스트 초기화
+            document.getElementById('toggleAnswerBtn').textContent = '전체 정답 보기';
+            document.getElementById('toggleAnswerBtn').style.backgroundColor = '#ffc107'; // 노란색
         }
 
         /**
@@ -189,28 +207,54 @@
         }
 
         /**
-         * 정답을 숨기거나 보이게 합니다.
+         * 개별 카타카나의 정답을 숨기거나 보이게 합니다.
+         * @param {HTMLElement} button - 클릭된 버튼 요소
          */
-        function toggleAnswer() {
-            const rows = document.getElementById('kanaTableBody').getElementsByTagName('tr');
-            const button = document.getElementById('toggleAnswerBtn');
-            let isHidden = rows[0].classList.contains('hidden-kana');
+        function toggleSingleAnswer(button) {
+            const row = button.closest('tr'); // 가장 가까운 tr 요소 (행) 찾기
+            const isHidden = row.classList.contains('kana-hidden');
 
+            if (isHidden) {
+                row.classList.remove('kana-hidden');
+                button.textContent = '정답 숨기기';
+            } else {
+                row.classList.add('kana-hidden');
+                button.textContent = '정답 확인';
+            }
+
+            // 전체 토글 버튼 상태를 초기화하여 개별 확인으로 인한 혼란 방지
+            document.getElementById('toggleAnswerBtn').textContent = '전체 정답 보기';
+            document.getElementById('toggleAnswerBtn').style.backgroundColor = '#ffc107';
+        }
+
+        /**
+         * 전체 정답을 숨기거나 보이게 합니다.
+         */
+        function toggleAllAnswers() {
+            const rows = document.getElementById('kanaTableBody').getElementsByTagName('tr');
+            const toggleAllBtn = document.getElementById('toggleAnswerBtn');
+            let isAnyHidden = Array.from(rows).some(row => row.classList.contains('kana-hidden'));
+            
+            // 모든 행의 상태와 개별 버튼 텍스트 변경
             for (const row of rows) {
-                if (isHidden) {
-                    row.classList.remove('hidden-kana');
+                const singleBtn = row.querySelector('.toggle-single-btn');
+                
+                if (isAnyHidden) {
+                    row.classList.remove('kana-hidden');
+                    if (singleBtn) singleBtn.textContent = '정답 숨기기';
                 } else {
-                    row.classList.add('hidden-kana');
+                    row.classList.add('kana-hidden');
+                    if (singleBtn) singleBtn.textContent = '정답 확인';
                 }
             }
             
-            // 버튼 텍스트 업데이트
-            if (isHidden) {
-                button.textContent = '정답 숨기기';
-                button.style.backgroundColor = '#28a745'; // 초록색 계열로 변경
+            // 전체 토글 버튼 텍스트 및 색상 업데이트
+            if (isAnyHidden) {
+                toggleAllBtn.textContent = '전체 정답 숨기기';
+                toggleAllBtn.style.backgroundColor = '#28a745'; // 초록색 계열로 변경
             } else {
-                button.textContent = '정답 보기';
-                button.style.backgroundColor = '#ffc107'; // 노란색 계열로 변경
+                toggleAllBtn.textContent = '전체 정답 보기';
+                toggleAllBtn.style.backgroundColor = '#ffc107'; // 노란색 계열로 변경
             }
         }
 
