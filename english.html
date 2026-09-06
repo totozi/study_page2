@@ -180,7 +180,7 @@
 <div class="wrap">
   <header>
     <h1>매일 영어 회화 퀴즈</h1>
-    <p>Day를 선택하면 한국어 문장이 나와요. 정답 버튼을 누르면 영어 문장을 확인할 수 있어요.</p>
+    <p>Week 선택하면 한국어 문장이 나와요. 정답 버튼을 누르면 영어 문장을 확인할 수 있어요.</p>
   </header>
 
   <div class="day-bar">
@@ -333,12 +333,12 @@
     dayList = Array.from(dayMap.keys()).sort((a, b) => a - b);
 
     if (!dayList.length) {
-      showMessage("유효한 Day 데이터를 찾지 못했어요.");
+      showMessage("유효한 Week 데이터를 찾지 못했어요.");
       return;
     }
 
     daySelect.innerHTML = dayList
-      .map((d) => '<option value="' + d + '">Day ' + d + "</option>")
+      .map((d) => '<option value="' + d + '">Week ' + d + "</option>")
       .join("");
 
     currentIndex = 0;
@@ -363,7 +363,7 @@
     if (day !== null) {
       const items = dayMap.get(day) || [];
       if (!items.length) {
-        showMessage("Day " + day + " 에 문장이 없어요.");
+        showMessage("Week " + day + " 에 문장이 없어요.");
         return;
       }
       currentItems = items.slice();
