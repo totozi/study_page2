@@ -1,197 +1,385 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>영어 작문 연습</title>
-  <style>
-    :root{--bg:#f6f7fb;--card:#fff;--ink:#222;--muted:#666;--accent:#4f46e5}
-    *{box-sizing:border-box}
-    body{margin:0;background:var(--bg);color:var(--ink);font-family:system-ui,-apple-system,Segoe UI,Roboto,Apple SD Gothic Neo,Noto Sans KR,sans-serif}
-    header{position:sticky;top:0;background:var(--bg);border-bottom:1px solid #e5e7eb}
-    .wrap{max-width:800px;margin:0 auto;padding:16px}
-    h1{font-size:22px;margin:6px 0 12px}
-    .toolbar{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
-    .btn{border:1px solid #d1d5db;background:#fff;color:var(--ink);padding:10px 14px;border-radius:10px;cursor:pointer}
-    .btn.primary{background:var(--accent);color:#fff;border-color:transparent}
-    .btn:disabled{opacity:.6;cursor:not-allowed}
-    .cards{display:grid;grid-template-columns:1fr;gap:18px;margin-top:14px}
-    .card{background:var(--card);border:1px solid #e5e7eb;border-radius:14px;padding:16px;box-shadow:0 2px 8px rgba(0,0,0,.04)}
-    .qa{display:grid;gap:10px}
-    .ko{font-size:20px;font-weight:700;text-align:center;border:1px solid #d1d5db;border-radius:8px;padding:10px;background:#f9fafb}
-    .en{font-size:20px;text-align:center;border:1px dashed #d1d5db;border-radius:8px;padding:10px;background:#fafbff}
-    .en.hidden{
-      /* 기존 blur/투명 제거하고 placeholder(언더스코어)가 보이게 */
-      filter:none;
-      color:var(--ink);
-      text-shadow:none;
-      font-variant-numeric: tabular-nums;
-      letter-spacing:.5px;
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>매일 영어 회화 퀴즈</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --bg: #f5f6f8;
+    --card-bg: #ffffff;
+    --text: #1f2430;
+    --muted: #6b7280;
+    --accent: #3b5bdb;
+    --accent-hover: #2f4bc0;
+    --border: #e3e5ea;
+    --answer-bg: #eef4ff;
+    --answer-text: #1e3a8a;
+    --shadow: 0 1px 3px rgba(0,0,0,0.06), 0 4px 12px rgba(0,0,0,0.04);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14161a;
+      --card-bg: #1d2026;
+      --text: #eceef1;
+      --muted: #9aa1ac;
+      --accent: #5c7cfa;
+      --accent-hover: #7091ff;
+      --border: #2c3038;
+      --answer-bg: #1b2740;
+      --answer-text: #a9c1ff;
+      --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 4px 12px rgba(0,0,0,0.2);
     }
-    .actions{display:flex;justify-content:flex-end}
-    .pill{border:1px solid #d1d5db;background:#fff;border-radius:999px;padding:6px 10px;font-weight:600}
-    .row{display:flex;gap:8px;align-items:center}
-    input[type="number"]{width:84px;padding:8px 10px;border:1px solid #d1d5db;border-radius:10px;background:#fff}
-    .hint{color:var(--muted);font-size:13px}
-    .uploader{display:flex;gap:8px;align-items:center}
-    .file{display:inline-block}
-  </style>
-  <!-- SheetJS (XLSX) -->
-  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Apple SD Gothic Neo", "Malgun Gothic", Roboto, sans-serif;
+    min-height: 100vh;
+    padding: 24px 16px 60px;
+  }
+  .wrap {
+    max-width: 640px;
+    margin: 0 auto;
+  }
+  header {
+    text-align: center;
+    margin-bottom: 24px;
+  }
+  header h1 {
+    font-size: 1.4rem;
+    margin: 0 0 4px;
+  }
+  header p {
+    margin: 0;
+    color: var(--muted);
+    font-size: 0.9rem;
+  }
+  .day-bar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 12px 14px;
+    box-shadow: var(--shadow);
+    margin-bottom: 20px;
+  }
+  .day-bar label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    white-space: nowrap;
+  }
+  .day-bar select {
+    flex: 1;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    font-size: 0.95rem;
+  }
+  .nav-btn {
+    border: 1px solid var(--border);
+    background: var(--bg);
+    color: var(--text);
+    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+  }
+  .nav-btn:disabled {
+    opacity: 0.35;
+    cursor: default;
+  }
+  .toolbar {
+    display: flex;
+    justify-content: flex-end;
+    margin-bottom: 12px;
+  }
+  .toolbar button {
+    border: none;
+    background: none;
+    color: var(--accent);
+    font-size: 0.85rem;
+    cursor: pointer;
+    padding: 4px 6px;
+  }
+  .card {
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    box-shadow: var(--shadow);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .card .idx {
+    font-size: 0.75rem;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .card .kr {
+    font-size: 1.08rem;
+    line-height: 1.5;
+    margin-bottom: 14px;
+  }
+  .reveal-btn {
+    display: inline-block;
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    padding: 9px 16px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  .reveal-btn:hover {
+    background: var(--accent-hover);
+  }
+  .answer {
+    margin-top: 12px;
+    background: var(--answer-bg);
+    color: var(--answer-text);
+    border-radius: 8px;
+    padding: 12px 14px;
+    font-size: 1rem;
+    line-height: 1.5;
+    display: none;
+  }
+  .answer.show {
+    display: block;
+  }
+  .state-msg {
+    text-align: center;
+    color: var(--muted);
+    padding: 40px 16px;
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+  .state-msg code {
+    background: var(--border);
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  footer {
+    text-align: center;
+    color: var(--muted);
+    font-size: 0.75rem;
+    margin-top: 30px;
+  }
+</style>
 </head>
 <body>
+<div class="wrap">
   <header>
-    <div class="wrap">
-      <h1>영어 작문 연습</h1>
-      <div class="toolbar">
-        <button id="shuffleBtn" class="btn">무작위 섞기</button>
-        <div class="row">
-          <label for="repeat">반복:</label>
-          <input id="repeat" type="number" min="1" value="1" />
-        </div>
-        <div class="uploader">
-          <input id="file" class="file" type="file" accept=".xlsx,.xls" />
-          <span class="hint">엑셀(english.xlsx) A열=영어, B열=한글</span>
-        </div>
-        <button id="revealAll" class="btn">전체 정답 보기</button>
-        <button id="hideAll" class="btn">전체 가리기</button>
-      </div>
-    </div>
+    <h1>매일 영어 회화 퀴즈</h1>
+    <p>Day를 선택하면 한국어 문장이 나와요. 정답 버튼을 누르면 영어 문장을 확인할 수 있어요.</p>
   </header>
 
-  <main class="wrap">
-    <div id="cards" class="cards" aria-live="polite"></div>
-  </main>
+  <div class="day-bar">
+    <label for="daySelect">Day</label>
+    <button id="prevBtn" class="nav-btn" aria-label="이전 날짜">‹</button>
+    <select id="daySelect"></select>
+    <button id="nextBtn" class="nav-btn" aria-label="다음 날짜">›</button>
+  </div>
 
-  <template id="card-tpl">
-    <div class="card">
-      <div class="qa">
-        <div class="ko"></div>
-        <div class="en hidden"></div>
-      </div>
-      <div class="actions" style="margin-top:10px">
-        <button class="btn reveal">정답</button>
-      </div>
-    </div>
-  </template>
+  <div class="toolbar" id="toolbar" style="display:none;">
+    <button id="toggleAllBtn" type="button">모든 정답 보기</button>
+  </div>
 
-  <script>
-    const cardsEl = document.getElementById('cards');
-    const fileInput = document.getElementById('file');
-    const shuffleBtn = document.getElementById('shuffleBtn');
-    const repeatInput = document.getElementById('repeat');
-    const revealAllBtn = document.getElementById('revealAll');
-    const hideAllBtn = document.getElementById('hideAll');
+  <div id="content">
+    <div class="state-msg" id="statusMsg">불러오는 중...</div>
+  </div>
 
-    /** Load default english.xlsx if it exists next to this HTML */
-    window.addEventListener('DOMContentLoaded', async () => {
-      try {
-        const res = await fetch('english.xlsx');
-        if (!res.ok) throw new Error('No default file');
-        const buf = await res.arrayBuffer();
-        buildFromWorkbook(XLSX.read(buf, {type:'array'}));
-      } catch (_) {
-        // ignore; user will upload a file
-      }
+  <footer>data source: <code>english.xlsx</code></footer>
+</div>
+
+<script>
+(function () {
+  const DATA_FILE = "english.xlsx";
+
+  const daySelect = document.getElementById("daySelect");
+  const prevBtn = document.getElementById("prevBtn");
+  const nextBtn = document.getElementById("nextBtn");
+  const content = document.getElementById("content");
+  const toolbar = document.getElementById("toolbar");
+  const toggleAllBtn = document.getElementById("toggleAllBtn");
+
+  let dayMap = new Map(); // day -> [{kr, en}]
+  let dayList = [];
+  let currentIndex = 0;
+
+  function showMessage(html) {
+    content.innerHTML = '<div class="state-msg">' + html + '</div>';
+  }
+
+  function normalizeHeader(h) {
+    return String(h || "").trim().toLowerCase();
+  }
+
+  function findKey(row, candidates) {
+    const keys = Object.keys(row);
+    for (const k of keys) {
+      const nk = normalizeHeader(k);
+      if (candidates.includes(nk)) return k;
+    }
+    return null;
+  }
+
+  function parseWorkbook(workbook) {
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = XLSX.utils.sheet_to_json(sheet, { defval: "" });
+
+    if (!rows.length) {
+      showMessage("english.xlsx 에 데이터가 없어요.");
+      return;
+    }
+
+    const dayKey = findKey(rows[0], ["day"]);
+    const enKey = findKey(rows[0], ["영어", "english", "en"]);
+    const krKey = findKey(rows[0], ["한국어", "korean", "kr", "ko"]);
+
+    if (!dayKey || !enKey || !krKey) {
+      showMessage(
+        "엑셀 열 이름을 인식하지 못했어요.<br>첫 번째 행(헤더)에 <code>Day</code>, <code>영어</code>, <code>한국어</code> 열이 있는지 확인해주세요."
+      );
+      return;
+    }
+
+    dayMap = new Map();
+    rows.forEach((row) => {
+      const dayRaw = row[dayKey];
+      if (dayRaw === "" || dayRaw === null || dayRaw === undefined) return;
+      const day = Number(dayRaw);
+      const en = String(row[enKey] || "").trim();
+      const kr = String(row[krKey] || "").trim();
+      if (!en && !kr) return;
+      if (!dayMap.has(day)) dayMap.set(day, []);
+      dayMap.get(day).push({ en, kr });
     });
 
-    fileInput.addEventListener('change', async (e) => {
-      const file = e.target.files?.[0];
-      if (!file) return;
-      const buf = await file.arrayBuffer();
-      const wb = XLSX.read(buf, { type: 'array' });
-      buildFromWorkbook(wb);
-    });
+    dayList = Array.from(dayMap.keys()).sort((a, b) => a - b);
 
-    function buildFromWorkbook(wb){
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws, { header:1, blankrows:false });
-      // Expect: column A = English, B = Korean; ignore empty lines
-      let pairs = [];
-      for (const r of rows){
-        if (!r || (r[0]===undefined && r[1]===undefined)) continue;
-        const en = String(r[0] ?? '').trim();
-        const ko = String(r[1] ?? '').trim();
-        if (!en || !ko) continue;
-        pairs.push({ en, ko });
-      }
-      render(pairs);
-    }
-    /** 글자/숫자만 _ 로 바꿔서 단어 길이 보여주기 (공백/문장부호 유지) */
-    function maskText(str){
-      // don't touch spaces or punctuation; replace letters/digits with underscores
-      return str.replace(/[A-Za-z0-9]/g, '_');
+    if (!dayList.length) {
+      showMessage("유효한 Day 데이터를 찾지 못했어요.");
+      return;
     }
 
-    /** 숨김/보임 상태에 맞춰 내용 업데이트 */
-    function applyHiddenState(enEl, hidden){
-      const answer = enEl.dataset.answer || '';
-      if(hidden){
-        enEl.classList.add('hidden');
-        enEl.textContent = maskText(answer);
-      }else{
-        enEl.classList.remove('hidden');
-        enEl.textContent = answer;
-      }
+    daySelect.innerHTML = dayList
+      .map((d) => '<option value="' + d + '">Day ' + d + "</option>")
+      .join("");
+
+    currentIndex = 0;
+    daySelect.value = dayList[0];
+    toolbar.style.display = "flex";
+    renderDay(dayList[0]);
+    updateNavButtons();
+  }
+
+  function renderDay(day) {
+    const items = dayMap.get(day) || [];
+    if (!items.length) {
+      showMessage("Day " + day + " 에 문장이 없어요.");
+      return;
     }
-    function render(pairs){
-      const repeat = Math.max(1, parseInt(repeatInput.value||'1',10));
-      let data = [];
-      for (let i=0;i<repeat;i++) data = data.concat(pairs);
-      shuffle(data);
-      cardsEl.innerHTML='';
-      const tpl = document.getElementById('card-tpl');
-      data.forEach(({ko,en})=>{
-        const node = tpl.content.cloneNode(true);
-        const koEl = node.querySelector('.ko');
-        const enEl = node.querySelector('.en');
-        const btn = node.querySelector('.reveal');
+    content.innerHTML = items
+      .map((item, i) => {
+        const safeKr = escapeHtml(item.kr);
+        const safeEn = escapeHtml(item.en);
+        return (
+          '<div class="card">' +
+          '<div class="idx">' + (i + 1) + " / " + items.length + "</div>" +
+          '<div class="kr">' + safeKr + "</div>" +
+          '<button class="reveal-btn" type="button" data-role="reveal">정답 보기</button>' +
+          '<div class="answer" data-role="answer">' + safeEn + "</div>" +
+          "</div>"
+        );
+      })
+      .join("");
 
-        koEl.textContent = ko;
-        enEl.dataset.answer = en;        // 정답 저장
-        applyHiddenState(enEl, true);    // 초기에는 마스크 보여주기
-
-        btn.addEventListener('click',()=>{
-          const nowHidden = !enEl.classList.contains('hidden'); // 현재 보임이면 숨기기
-          applyHiddenState(enEl, nowHidden);
-          btn.textContent = nowHidden ? '정답' : '가리기';
-        });
-        cardsEl.appendChild(node);
+    content.querySelectorAll('[data-role="reveal"]').forEach((btn) => {
+      btn.addEventListener("click", () => {
+        const answer = btn.nextElementSibling;
+        const isShown = answer.classList.toggle("show");
+        btn.textContent = isShown ? "정답 숨기기" : "정답 보기";
       });
+    });
+
+    toggleAllBtn.textContent = "모든 정답 보기";
+  }
+
+  function escapeHtml(str) {
+    return str
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;");
+  }
+
+  function updateNavButtons() {
+    prevBtn.disabled = currentIndex <= 0;
+    nextBtn.disabled = currentIndex >= dayList.length - 1;
+  }
+
+  daySelect.addEventListener("change", () => {
+    currentIndex = dayList.indexOf(Number(daySelect.value));
+    renderDay(dayList[currentIndex]);
+    updateNavButtons();
+  });
+
+  prevBtn.addEventListener("click", () => {
+    if (currentIndex > 0) {
+      currentIndex -= 1;
+      daySelect.value = dayList[currentIndex];
+      renderDay(dayList[currentIndex]);
+      updateNavButtons();
     }
+  });
 
-    function shuffle(arr){
-      for (let i=arr.length-1;i>0;i--){
-        const j = Math.floor(Math.random()*(i+1));
-        [arr[i],arr[j]]=[arr[j],arr[i]];
-      }
-      return arr;
+  nextBtn.addEventListener("click", () => {
+    if (currentIndex < dayList.length - 1) {
+      currentIndex += 1;
+      daySelect.value = dayList[currentIndex];
+      renderDay(dayList[currentIndex]);
+      updateNavButtons();
     }
+  });
 
-    /* 셔플 후에도 중복 제거한 뒤 다시 렌더(마스크 로직 유지) */
-    shuffleBtn.addEventListener('click',()=>{
-      const items = Array.from(document.querySelectorAll('.card .qa')).map(q=>({
-        ko: q.querySelector('.ko').textContent,
-        en: q.querySelector('.en').dataset.answer || q.querySelector('.en').textContent
-      }));
-      const seen = new Set();
-      const pairs=[];
-      for(const it of items){
-        const k = it.ko+'\u0000'+it.en;
-        if(seen.has(k)) continue; seen.add(k); pairs.push(it);
-      }
-      render(pairs);
-    });
+  toggleAllBtn.addEventListener("click", () => {
+    const answers = content.querySelectorAll('[data-role="answer"]');
+    const buttons = content.querySelectorAll('[data-role="reveal"]');
+    const shouldShow = toggleAllBtn.textContent === "모든 정답 보기";
+    answers.forEach((a) => a.classList.toggle("show", shouldShow));
+    buttons.forEach((b) => (b.textContent = shouldShow ? "정답 숨기기" : "정답 보기"));
+    toggleAllBtn.textContent = shouldShow ? "모든 정답 숨기기" : "모든 정답 보기";
+  });
 
-    /* 전체 보이기/가리기도 마스크 적용 */
-    revealAllBtn.addEventListener('click',()=>{
-      document.querySelectorAll('.en').forEach(el=>applyHiddenState(el, false));
-      document.querySelectorAll('.reveal').forEach(btn=>btn.textContent='가리기');
+  fetch(DATA_FILE)
+    .then((res) => {
+      if (!res.ok) throw new Error("HTTP " + res.status);
+      return res.arrayBuffer();
+    })
+    .then((buf) => {
+      const workbook = XLSX.read(buf, { type: "array" });
+      parseWorkbook(workbook);
+    })
+    .catch((err) => {
+      console.error(err);
+      showMessage(
+        "english.xlsx 파일을 불러오지 못했어요.<br>" +
+          "이 페이지와 같은 폴더에 <code>english.xlsx</code> 파일이 있는지 확인하고,<br>" +
+          "GitHub Pages로 배포했거나 로컬 웹 서버(예: <code>python3 -m http.server</code>)로 열었는지 확인해주세요.<br>" +
+          "(파일을 더블클릭해서 직접 열면 브라우저 보안 정책 때문에 불러올 수 없어요.)<br><br>" +
+          '<span style="font-size:0.8rem;">' + (err && err.message ? err.message : "") + "</span>"
+      );
     });
-    hideAllBtn.addEventListener('click',()=>{
-      document.querySelectorAll('.en').forEach(el=>applyHiddenState(el, true));
-      document.querySelectorAll('.reveal').forEach(btn=>btn.textContent='정답');
-    });
-  </script>
+})();
+</script>
 </body>
 </html>
