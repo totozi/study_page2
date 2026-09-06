@@ -100,7 +100,8 @@
   }
   .toolbar {
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
+    align-items: center;
     margin-bottom: 12px;
   }
   .toolbar button {
@@ -190,6 +191,7 @@
   </div>
 
   <div class="toolbar" id="toolbar" style="display:none;">
+    <button id="shuffleBtn" type="button">🔀 섞기</button>
     <button id="toggleAllBtn" type="button">모든 정답 보기</button>
   </div>
 
@@ -210,17 +212,25 @@
   const content = document.getElementById("content");
   const toolbar = document.getElementById("toolbar");
   const toggleAllBtn = document.getElementById("toggleAllBtn");
+  const shuffleBtn = document.getElementById("shuffleBtn");
 
-  let dayMap = new Map(); // day -> [{kr, en}]
+  let dayMap = new Map(); // day -> [{kr, en}]  (original order, never mutated)
   let dayList = [];
   let currentIndex = 0;
+  let currentItems = []; // items currently rendered for the selected day (may be shuffled)
 
   function showMessage(html) {
     content.innerHTML = '<div class="state-msg">' + html + '</div>';
   }
 
+  // Normalize header/cell text so matching survives whitespace, BOM,
+  // and differing Unicode normalization forms (NFC vs NFD Korean text).
   function normalizeHeader(h) {
-    return String(h || "").trim().toLowerCase();
+    return String(h == null ? "" : h)
+      .replace(/﻿/g, "")
+      .normalize("NFC")
+      .trim()
+      .toLowerCase();
   }
 
   function findKey(row, candidates) {
@@ -230,6 +240,48 @@
       if (candidates.includes(nk)) return k;
     }
     return null;
+  }
+
+  const HANGUL_RE = /[가-힣ᄀ-ᇿ㄰-㆏]/;
+
+  // Fallback used when header names don't match the expected labels:
+  // guess columns from their actual content (numbers -> Day, Hangul -> Korean,
+  // remaining column -> English).
+  function detectColumnsByContent(rows) {
+    const keys = Object.keys(rows[0] || {});
+    if (keys.length < 3) return null;
+
+    const stats = keys.map((key) => {
+      let nonEmpty = 0;
+      let numeric = 0;
+      let hangul = 0;
+      rows.forEach((row) => {
+        const raw = row[key];
+        const v = String(raw == null ? "" : raw)
+          .normalize("NFC")
+          .trim();
+        if (v === "") return;
+        nonEmpty += 1;
+        if (v !== "" && !isNaN(Number(v))) numeric += 1;
+        if (HANGUL_RE.test(v)) hangul += 1;
+      });
+      return { key, nonEmpty, numericRatio: nonEmpty ? numeric / nonEmpty : 0, hangulRatio: nonEmpty ? hangul / nonEmpty : 0 };
+    });
+
+    const withContent = stats.filter((s) => s.nonEmpty > 0);
+    if (withContent.length < 3) return null;
+
+    const dayStat = withContent.slice().sort((a, b) => b.numericRatio - a.numericRatio)[0];
+    if (!dayStat || dayStat.numericRatio < 0.5) return null;
+
+    const remaining = withContent.filter((s) => s.key !== dayStat.key);
+    const krStat = remaining.slice().sort((a, b) => b.hangulRatio - a.hangulRatio)[0];
+    if (!krStat || krStat.hangulRatio === 0) return null;
+
+    const enStat = remaining.find((s) => s.key !== krStat.key);
+    if (!enStat) return null;
+
+    return { dayKey: dayStat.key, enKey: enStat.key, krKey: krStat.key };
   }
 
   function parseWorkbook(workbook) {
@@ -242,13 +294,26 @@
       return;
     }
 
-    const dayKey = findKey(rows[0], ["day"]);
-    const enKey = findKey(rows[0], ["영어", "english", "en"]);
-    const krKey = findKey(rows[0], ["한국어", "korean", "kr", "ko"]);
+    let dayKey = findKey(rows[0], ["day"]);
+    let enKey = findKey(rows[0], ["영어", "english", "en"]);
+    let krKey = findKey(rows[0], ["한국어", "korean", "kr", "ko"]);
 
     if (!dayKey || !enKey || !krKey) {
+      const guessed = detectColumnsByContent(rows);
+      if (guessed) {
+        dayKey = guessed.dayKey;
+        enKey = guessed.enKey;
+        krKey = guessed.krKey;
+      }
+    }
+
+    if (!dayKey || !enKey || !krKey) {
+      const foundHeaders = Object.keys(rows[0])
+        .map((h) => "<code>" + escapeHtml(String(h)) + "</code>")
+        .join(", ");
       showMessage(
-        "엑셀 열 이름을 인식하지 못했어요.<br>첫 번째 행(헤더)에 <code>Day</code>, <code>영어</code>, <code>한국어</code> 열이 있는지 확인해주세요."
+        "엑셀 열 이름을 인식하지 못했어요.<br>첫 번째 행(헤더)에 <code>Day</code>, <code>영어</code>, <code>한국어</code> 열이 있는지 확인해주세요.<br><br>" +
+          '<span style="font-size:0.8rem;">읽어들인 열 이름: ' + foundHeaders + "</span>"
       );
       return;
     }
@@ -283,12 +348,27 @@
     updateNavButtons();
   }
 
-  function renderDay(day) {
-    const items = dayMap.get(day) || [];
-    if (!items.length) {
-      showMessage("Day " + day + " 에 문장이 없어요.");
-      return;
+  function shuffleArray(arr) {
+    const a = arr.slice();
+    for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
     }
+    return a;
+  }
+
+  // day: the day to load (resets to original order). Pass null to re-render
+  // currentItems as-is (used right after shuffling).
+  function renderDay(day) {
+    if (day !== null) {
+      const items = dayMap.get(day) || [];
+      if (!items.length) {
+        showMessage("Day " + day + " 에 문장이 없어요.");
+        return;
+      }
+      currentItems = items.slice();
+    }
+    const items = currentItems;
     content.innerHTML = items
       .map((item, i) => {
         const safeKr = escapeHtml(item.kr);
@@ -358,6 +438,11 @@
     answers.forEach((a) => a.classList.toggle("show", shouldShow));
     buttons.forEach((b) => (b.textContent = shouldShow ? "정답 숨기기" : "정답 보기"));
     toggleAllBtn.textContent = shouldShow ? "모든 정답 숨기기" : "모든 정답 보기";
+  });
+
+  shuffleBtn.addEventListener("click", () => {
+    currentItems = shuffleArray(currentItems);
+    renderDay(null);
   });
 
   fetch(DATA_FILE)
